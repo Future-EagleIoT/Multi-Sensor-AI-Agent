@@ -6,11 +6,11 @@
 // -----------------------------------------------
 // CONFIGURATION — update before flashing
 // -----------------------------------------------
-const char* WIFI_SSID     = "HariWifi";
-const char* WIFI_PASSWORD = "Iotfrontier*";
-const char* MQTT_BROKER   = "192.168.29.152";    // Your laptop's IPv4 address
+const char* WIFI_SSID     = "Braga-5G";
+const char* WIFI_PASSWORD = "Braga2026";
+const char* MQTT_BROKER   = "196.187.148.92";    // Your laptop's IPv4 address
 const int   MQTT_PORT     = 1883;
-const char* MQTT_TOPIC    = "iotfrontier/sensors/motor01";
+const char* MQTT_TOPIC    = "future_eagle_iot/sensors/motor01";
 const char* DEVICE_ID     = "esp32-motor-01";
 
 // -----------------------------------------------

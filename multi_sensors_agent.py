@@ -1,5 +1,4 @@
 # === FILE: agent.py ===
-# IoT Frontier — Episode 2
 # Multi-Sensor Correlation AI Agent
 # MQTT Subscriber → gemma4:4b (Ollama)
 # Signals: temperature (real), humidity (real), vibration (simulated), power_draw (simulated)
