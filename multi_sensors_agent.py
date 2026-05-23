@@ -12,7 +12,7 @@ import ollama
 # -----------------------------------------------
 # CONFIGURATION
 # -----------------------------------------------
-MQTT_BROKER  = "[IP_ADDRESS]"
+MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT    = 1883
 MQTT_TOPIC   = "future_eagle/sensors/motor01"
 OLLAMA_MODEL = "gemma4:latest"
