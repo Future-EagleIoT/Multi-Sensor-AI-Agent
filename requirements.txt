@@ -1,2 +1,4 @@
 paho-mqtt
 ollama
+supabase
+python-dotenv

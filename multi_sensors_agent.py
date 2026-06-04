@@ -6,16 +6,35 @@
 
 import json
 import time
+import os
 import paho.mqtt.client as mqtt
 import ollama
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # -----------------------------------------------
 # CONFIGURATION
 # -----------------------------------------------
-MQTT_BROKER = "broker.emqx.io"
-MQTT_PORT    = 1883
-MQTT_TOPIC   = "future_eagle/sensors/motor01"
-OLLAMA_MODEL = "gemma4:latest"
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
+MQTT_PORT   = int(os.getenv("MQTT_PORT", 8883))
+MQTT_TOPIC  = os.getenv("MQTT_TOPIC", "future_eagle_iot/sensors/motor01")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:latest")
+
+# Supabase Configuration
+SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+supabase: Client = None
+
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# SSL Configuration for mTLS
+CA_CERT     = os.getenv("CA_CERT", "./mosquitto/config/certs/ca.crt")
+CLIENT_CERT = os.getenv("CLIENT_CERT", "./mosquitto/config/certs/client.crt")
+CLIENT_KEY  = os.getenv("CLIENT_KEY", "./mosquitto/config/certs/client.key")
 
 # Motor baselines — what "healthy and idle" looks like
 BASELINE = {
@@ -50,6 +69,18 @@ NORMAL_RESET_READINGS     = 3     # Consecutive normal readings needed to reset 
 # Rolling reading history
 reading_history  = []
 MAX_HISTORY      = 5
+
+
+# -----------------------------------------------
+# SUPABASE ROUTING
+# -----------------------------------------------
+def push_to_supabase(table: str, data: dict):
+    if not supabase:
+        return
+    try:
+        supabase.table(table).insert(data).execute()
+    except Exception as e:
+        print(f"[Supabase Error] Failed to insert into {table}: {e}")
 
 
 # -----------------------------------------------
@@ -324,6 +355,16 @@ def on_message(client, userdata, msg):
         f"Vib: {vib:.1f}Hz  Pwr: {power:.0f}W"
     )
 
+    # Push reading to Supabase (ETL routing)
+    push_to_supabase("sensor_readings", {
+        "device_id": payload.get("device_id"),
+        "temperature": temp,
+        "humidity": hum,
+        "vibration_hz": vib,
+        "power_w": power,
+        "metadata": payload.get("sim_sensors", "")
+    })
+
     # Update rolling history
     reading_history.append(payload)
     if len(reading_history) > MAX_HISTORY:
@@ -360,6 +401,13 @@ def on_message(client, userdata, msg):
     # Register the fired alert AFTER the call completes
     cooldown.record_alert(severity)
 
+    # Push alert to Supabase
+    push_to_supabase("alerts", {
+        "device_id": payload.get("device_id"),
+        "severity": severity,
+        "message": analysis.splitlines()[0] if analysis else reason
+    })
+
     print(f"\n  [gemma4 Response — {elapsed:.1f}s]  [{cooldown.status_line()}]\n")
     for line in analysis.splitlines():
         print(f"    {line}")
@@ -379,6 +427,18 @@ if __name__ == "__main__":
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
+
+    # Configure TLS/SSL
+    if os.path.exists(CA_CERT):
+        client.tls_set(
+            ca_certs=CA_CERT,
+            certfile=CLIENT_CERT,
+            keyfile=CLIENT_KEY
+        )
+        # In a real production environment with a valid domain, we'd use:
+        # client.tls_insecure_set(False)
+        # For local dev with IP/localhost and self-signed certs:
+        client.tls_insecure_set(True)
 
     try:
         client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
