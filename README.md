@@ -168,13 +168,16 @@ sequenceDiagram
 - Service role for ETL inserts
 - Realtime subscriptions for mobile app
 
-### 5. Mobile App - React Native
+### 5. Mobile App - Expo (React Native)
 **Features:**
-- Real-time dashboard
-- 4-sensor display (temperature, humidity, vibration, power)
-- Pull-to-refresh
+- Auth (email) + guest read mode
+- Live dashboard with health status and 4-signal metrics
+- Alerts with filters, detail, resolve
+- History + devices tabs
 - Realtime subscriptions via Supabase
-- Clean, material design UI
+- Settings (account, connection, thresholds)
+
+See `mobile_app/README.md`.
 
 ---
 
@@ -283,9 +286,10 @@ python multi_sensors_agent.py
 ### Step 9: Run Mobile App
 ```bash
 cd mobile_app
+cp .env.example .env
+# Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
 npm install
-# Update src/services/supabase.js
-npm run android  # or ios
+npx expo start
 ```
 
 ---

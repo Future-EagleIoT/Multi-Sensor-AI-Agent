@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Future Eagle Motor Health",
+    "slug": "multisensor-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B1C24"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.futureeagle.motorhealth"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B1C24"
+      },
+      "package": "com.futureeagle.motorhealth"
+    },
+    "scheme": "futureeagle",
+    "plugins": []
+  }
+}

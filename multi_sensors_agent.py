@@ -356,13 +356,14 @@ def on_message(client, userdata, msg):
     )
 
     # Push reading to Supabase (ETL routing)
+    sim = payload.get("sim_sensors", "")
     push_to_supabase("sensor_readings", {
         "device_id": payload.get("device_id"),
         "temperature": temp,
         "humidity": hum,
         "vibration_hz": vib,
         "power_w": power,
-        "metadata": payload.get("sim_sensors", "")
+        "metadata": {"sim_sensors": sim} if sim else {},
     })
 
     # Update rolling history
@@ -401,11 +402,12 @@ def on_message(client, userdata, msg):
     # Register the fired alert AFTER the call completes
     cooldown.record_alert(severity)
 
-    # Push alert to Supabase
+    # Push alert to Supabase (full analysis for mobile detail view)
     push_to_supabase("alerts", {
         "device_id": payload.get("device_id"),
         "severity": severity,
-        "message": analysis.splitlines()[0] if analysis else reason
+        "message": (analysis or reason).strip(),
+        "is_resolved": False,
     })
 
     print(f"\n  [gemma4 Response — {elapsed:.1f}s]  [{cooldown.status_line()}]\n")

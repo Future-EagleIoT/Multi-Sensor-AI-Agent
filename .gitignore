@@ -11,10 +11,9 @@ mosquitto/config/config
 .env.development
 .env.test
 .env.production
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 mobile_app/build
 mobile_app/node_modules
+mobile_app/.env
+mobile_app/.expo
+mobile_app/dist
