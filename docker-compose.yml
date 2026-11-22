@@ -1,14 +1,155 @@
-version: '3.8'
+name: future-eagle-saas
+
+# Full Localhost Multi-Tenant Industrial IoT SaaS Stack
+# Zero AWS • Zero Cloudflare • Tuned for ~1 GiB total RAM on 7 GiB workstation
 
 services:
-  mosquitto:
-    image: eclipse-mosquitto:latest
-    container_name: mosquitto
+  timescaledb:
+    image: timescale/timescaledb-ha:pg16
+    container_name: eagle-timescaledb
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eagle_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eagle_dev_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-future_eagle_saas}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=100
+      - -c
+      - timescaledb.telemetry_level=off
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data:/home/postgres/pgdata/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eagle_admin} -d ${POSTGRES_DB:-future_eagle_saas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: eagle-valkey
+    restart: unless-stopped
+    mem_limit: 128m
+    command: ["valkey-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: eagle-nats
+    restart: unless-stopped
+    mem_limit: 128m
+    command: ["-js", "-sd", "/data", "-m", "8222", "--max_payload", "1MB"]
+    ports:
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  emqx:
+    image: emqx/emqx:5.8
+    container_name: eagle-emqx
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      timescaledb:
+        condition: service_healthy
     ports:
       - "8883:8883"
-      - "9001:9001"
+      - "127.0.0.1:18083:18083"
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - ./infra/emqx/emqx.conf:/opt/emqx/etc/emqx.conf:ro
+      - ./infra/emqx/acl.conf:/opt/emqx/etc/acl.conf:ro
+      - ./infra/certs:/opt/emqx/etc/certs:ro
+      - emqx_data:/opt/emqx/data
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  minio:
+    image: minio/minio:latest
+    container_name: eagle-minio
     restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-eagle_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-eagle_minio_secret_123}
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: eagle-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-eagle_minio} $${MINIO_ROOT_PASSWORD:-eagle_minio_secret_123} &&
+      mc mb --ignore-existing local/$${MINIO_BUCKET:-future-eagle-artifacts} &&
+      echo '[MinIO] Bucket ready.'
+      "
+    restart: "no"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: eagle-mailpit
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+  # Optional local LLM profile: `docker compose --profile local-ai up -d`
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eagle-ollama
+    profiles: ["local-ai"]
+    restart: unless-stopped
+    mem_limit: 2048m
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  pg_data:
+  valkey_data:
+  nats_data:
+  emqx_data:
+  minio_data:
+  ollama_data:

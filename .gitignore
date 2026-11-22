@@ -3,7 +3,11 @@ mosquitto/config/log
 mosquitto/config/data
 mosquitto/config/config
 
+infra/certs/*
+!infra/certs/.gitkeep
+
 .env
+.env.saas
 .env.local
 .env.development.local
 .env.test.local
@@ -11,6 +15,18 @@ mosquitto/config/config
 .env.development
 .env.test
 .env.production
+
+firmware/**/secrets.h
+
+backend/.venv
+backend/**/__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+
+web/node_modules
+web/dist
 
 mobile_app/build
 mobile_app/node_modules
