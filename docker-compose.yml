@@ -91,39 +91,23 @@ services:
       timeout: 5s
       retries: 15
 
-  minio:
-    image: minio/minio:latest
-    container_name: eagle-minio
+  storage:
+    image: rustfs/rustfs:latest
+    container_name: eagle-storage
     restart: unless-stopped
-    mem_limit: 256m
+    mem_limit: 192m
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-eagle_minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-eagle_minio_secret_123}
-    command: server /data --console-address ":9001"
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-eagle_storage}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-eagle_storage_secret_123}
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+    command: ["/data"]
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  minio-init:
-    image: minio/mc:latest
-    container_name: eagle-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-eagle_minio} $${MINIO_ROOT_PASSWORD:-eagle_minio_secret_123} &&
-      mc mb --ignore-existing local/$${MINIO_BUCKET:-future-eagle-artifacts} &&
-      echo '[MinIO] Bucket ready.'
-      "
-    restart: "no"
+      - storage_data:/data
 
   mailpit:
     image: axllent/mailpit:latest
@@ -151,5 +135,5 @@ volumes:
   valkey_data:
   nats_data:
   emqx_data:
-  minio_data:
+  storage_data:
   ollama_data:

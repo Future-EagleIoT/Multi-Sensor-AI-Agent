@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "future-eagle-backend"
+version = "1.0.0"
+description = "Multi-Tenant Industrial IoT Predictive Maintenance SaaS Backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.8",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.6",
+    "pydantic-settings==2.7.1",
+    "email-validator==2.2.0",
+    "sqlalchemy[asyncio]==2.0.38",
+    "asyncpg==0.30.0",
+    "psycopg[binary]==3.2.4",
+    "alembic==1.14.1",
+    "pgvector==0.3.6",
+    "redis==5.2.1",
+    "nats-py==2.9.0",
+    "paho-mqtt==2.1.0",
+    "cryptography==44.0.1",
+    "pyjwt==2.10.1",
+    "argon2-cffi==23.1.0",
+    "httpx==0.28.1",
+    "boto3==1.36.21",
+    "fpdf2==2.8.2",
+    "python-multipart==0.0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.3",
+    "ruff==0.9.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["app/tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
