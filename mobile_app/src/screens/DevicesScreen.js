@@ -7,32 +7,8 @@ import { colors, radii, spacing } from '../theme/tokens';
 import { formatRelative } from '../utils/format';
 
 export default function DevicesScreen() {
-  const { devices, readings, loading, refreshing, refresh, live } = useTelemetry();
-
-  const enriched = devices.map((d) => {
-    const last = readings.find((r) => r.device_id === d.device_name);
-    return { ...d, lastReading: last };
-  });
-
-  // Also show device_ids that exist in readings but not in devices table
-  const knownNames = new Set(devices.map((d) => d.device_name));
-  const orphanIds = [
-    ...new Set(
-      readings
-        .map((r) => r.device_id)
-        .filter((id) => id && !knownNames.has(id)),
-    ),
-  ];
-  const orphans = orphanIds.map((id) => ({
-    id: `orphan-${id}`,
-    device_name: id,
-    device_type: 'motor',
-    location: 'Unregistered',
-    lastReading: readings.find((r) => r.device_id === id),
-    unregistered: true,
-  }));
-
-  const data = [...enriched, ...orphans];
+  const { assets, devices, loading, refreshing, refresh, live } = useTelemetry();
+  const assetNames = Object.fromEntries(assets.map((a) => [a.id, a.name]));
 
   if (loading) {
     return (
@@ -46,10 +22,10 @@ export default function DevicesScreen() {
     <Screen>
       <View style={styles.header}>
         <Text style={styles.title}>Devices</Text>
-        <StatusChip tone={live ? 'live' : 'neutral'} label={live ? 'Live feed' : 'Idle'} />
+        <StatusChip tone={live ? 'live' : 'neutral'} label={live ? 'WS Live' : 'Idle'} />
       </View>
       <FlatList
-        data={data}
+        data={devices}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         refreshControl={
@@ -57,8 +33,8 @@ export default function DevicesScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            title="No devices registered"
-            body="Seed devices in Supabase or wait for ESP32 publishes (device_id appears from readings)."
+            title="No devices provisioned"
+            body="Provision mTLS devices in the Web Control Room (Devices & PKI tab)."
           />
         }
         renderItem={({ item }) => (
@@ -67,20 +43,20 @@ export default function DevicesScreen() {
               <Cpu size={20} color={colors.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{item.device_name}</Text>
+              <View style={styles.rowTop}>
+                <Text style={styles.name}>{item.device_uid}</Text>
+                <StatusChip
+                  tone={item.is_revoked ? 'critical' : item.status === 'online' ? 'ok' : 'neutral'}
+                  label={item.is_revoked ? 'Revoked' : item.status}
+                />
+              </View>
               <Text style={styles.meta}>
-                {item.device_type || 'motor'}
-                {item.location ? ` · ${item.location}` : ''}
+                Asset: {item.asset_id ? assetNames[item.asset_id] || item.asset_id : 'Unassigned'}
               </Text>
+              <Text style={styles.meta}>CN: {item.cert_cn}</Text>
               <Text style={styles.meta}>
-                Last seen{' '}
-                {item.lastReading
-                  ? formatRelative(item.lastReading.timestamp)
-                  : 'never'}
+                Last seen {item.last_seen_at ? formatRelative(item.last_seen_at) : 'never'}
               </Text>
-              {item.unregistered ? (
-                <Text style={styles.warn}>Seen in telemetry, not in devices table</Text>
-              ) : null}
             </View>
           </View>
         )}
@@ -118,6 +94,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  rowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   iconWrap: {
     width: 40,
     height: 40,
@@ -133,13 +114,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: colors.inkMuted,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  warn: {
-    color: colors.warning,
     fontSize: 12,
-    marginTop: 6,
-    fontWeight: '600',
+    marginTop: 2,
   },
 });

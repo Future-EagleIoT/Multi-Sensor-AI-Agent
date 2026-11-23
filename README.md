@@ -1,309 +1,119 @@
-# Multi-Sensor AI Agent - Complete Project Guide
+# Future Eagle IIoT — Multi-Tenant Industrial Predictive Maintenance SaaS
 
-## Table of Contents
-1. [Project Overview](#project-overview)
-2. [System Architecture](#system-architecture)
-3. [Data Flow Diagram](#data-flow-diagram)
-4. [Components Deep Dive](#components-deep-dive)
-5. [Real-World Industry Applications](#real-world-industry-applications)
-6. [Problems Solved](#problems-solved)
-7. [Setup Guide](#setup-guide)
+Full-stack Industrial IoT (IIoT) predictive-maintenance SaaS running **100% locally on `localhost`** with **zero AWS and zero Cloudflare dependencies**, engineered to deploy 1:1 to Hetzner / Scaleway / DigitalOcean + Coolify.
 
----
+## What's Inside
 
-## Project Overview
-
-This is a **Industrial IoT (IIoT) Multi-Sensor AI Agent** system designed to monitor motor health in real-time using:
-- **Embedded System**: ESP32 microcontroller + DHT11 sensor
-- **Communication Protocol**: MQTT with TLS/mTLS security
-- **AI/ML**: Google Gemma 4 (running locally via Ollama) for correlation analysis
-- **Database**: Supabase PostgreSQL (time-series data + RLS security)
-- **Mobile App**: React Native for real-time monitoring
-
-### Core Objectives
-1. Monitor motor health using 4 correlated signals
-2. Detect anomalies early using AI-driven multi-signal correlation
-3. Provide actionable insights for maintenance teams
-4. Enable real-time data visualization via mobile app
-5. Operate with minimal cloud dependency (local AI processing)
+| Layer | Technology (Zero AWS / Zero Cloudflare) | Local Access |
+|---|---|---|
+| **Web Control Room** | Vite + React 19 + TypeScript + Tailwind CSS + Apache ECharts (via Nginx) | `http://localhost:8080` |
+| **Core SaaS API & WebSockets** | Python 3.12 + FastAPI + Argon2id JWT + RBAC + OpenAPI Docs | `http://localhost:8080/docs` |
+| **Time-Series + Vector DB** | PostgreSQL 16 + TimescaleDB Hypertables + `pgvector` + strict **Row-Level Security (RLS)** | `localhost:5432` |
+| **Multi-Tenant MQTT Broker** | EMQX 5.8 (mTLS-only on `:8883`, dynamic PostgreSQL ACLs, LWT presence) | `http://localhost:18083` (`admin` / `eagle_emqx_admin`) |
+| **Stream & Job Buffer** | NATS JetStream (decouples MQTT ingestion from DB writes & LLM calls) | `localhost:4222` / `:8222` |
+| **State & Cooldown Store** | Valkey 8 (isolated per-device sliding windows, exponential backoff cooldowns, pub/sub) | `localhost:6379` |
+| **Object Storage (S3 API)** | Self-hosted MinIO (`pgsty/minio`) for manuals & PDF reports (swap to Hetzner/Scaleway/B2 in prod) | `http://localhost:9001` |
+| **Local Email Catcher** | Mailpit (captures team invites & critical alert emails locally) | `http://localhost:8025` |
+| **AI Diagnostic Copilot** | Async `pgvector` manual RAG + pluggable LLM (`mock` \| `gemini` \| `mistral` \| `ollama`) | Configured via `.env.saas` |
+| **Field Ops Mobile App** | Expo React Native (`mobile_app/`) connected to FastAPI + WebSockets | `cd mobile_app && npx expo start` |
+| **Edge Firmware** | Hardened ESP32 node (`firmware/esp32_sensor_node/`) with `WiFiClientSecure` mTLS, LWT, WDT, NTP | Flash via Arduino IDE / PlatformIO |
 
 ---
 
-## System Architecture
+## Localhost Quickstart (4 Commands)
 
-```mermaid
-graph TB
-    subgraph "Edge Layer"
-        ESP32["ESP32 Microcontroller<br/>(esp32_dht11.ino)"]
-        DHT11["DHT11 Sensor<br/>(Temp + Humidity)"]
-        ESP32 --> DHT11
-    end
-
-    subgraph "Network Layer"
-        MQTT["MQTT Broker (Mosquitto)<br/>(docker-compose.yml)"]
-        WiFi["WiFi Network"]
-        ESP32 -- MQTT/TLS --> MQTT
-    end
-
-    subgraph "Processing Layer"
-        Agent["Multi-Sensor AI Agent<br/>(multi_sensors_agent.py)"]
-        Ollama["Ollama (Local LLM)<br/>Gemma 4:4b"]
-        Agent -- Chat API --> Ollama
-        MQTT -- Subscribe --> Agent
-    end
-
-    subgraph "Storage & Application Layer"
-        Supabase["Supabase<br/>(PostgreSQL + Realtime)"]
-        Mobile["React Native Mobile App"]
-        Agent -- Insert --> Supabase
-        Supabase -- Realtime Sub --> Mobile
-    end
-
-    style ESP32 fill:#ff9f43
-    style DHT11 fill:#ee5a24
-    style MQTT fill:#00d2d3
-    style Agent fill:#54a0ff
-    style Ollama fill:#f368e0
-    style Supabase fill:#10ac84
-    style Mobile fill:#222f3e
-```
-
----
-
-## Data Flow Diagram
-
-```mermaid
-sequenceDiagram
-    participant ESP32 as ESP32 Microcontroller
-    participant MQTT as MQTT Broker (Mosquitto)
-    participant Agent as Python AI Agent
-    participant Ollama as Ollama (Gemma 4)
-    participant Supabase as Supabase
-    participant Mobile as React Native App
-
-    Note over ESP32: Collect Sensor Data
-    ESP32->>ESP32: Read temperature/humidity from DHT11
-    ESP32->>ESP32: Simulate vibration/power (correlated to temp)
-    ESP32->>ESP32: Package as JSON
-    
-    Note over ESP32,MQTT: Send via MQTT
-    ESP32->>MQTT: Publish to future_eagle_iot/sensors/motor01
-    
-    Note over MQTT,Agent: Process & Analyze
-    MQTT->>Agent: On Message Callback
-    Agent->>Agent: Evaluate Triggers (Thresholds + Correlation)
-    alt Trigger Fires
-        Agent->>Agent: Check Cooldown Manager
-        alt Allowed to Call LLM
-            Agent->>Ollama: Send Prompt + Sensor History
-            Ollama-->>Agent: Return Analysis (Severity + Recommendations)
-        end
-    end
-    
-    Note over Agent,Supabase: Store Data
-    Agent->>Supabase: Insert into sensor_readings
-    alt Alert Generated
-        Agent->>Supabase: Insert into alerts
-    end
-    
-    Note over Supabase,Mobile: Real-Time Updates
-    Supabase-->>Mobile: Realtime INSERT Event
-    Mobile->>Mobile: Update Dashboard
-```
-
----
-
-## Components Deep Dive
-
-### 1. Embedded Layer - ESP32 (esp32_dht11.ino)
-**Hardware Components:**
-- ESP32-WROOM-32
-- DHT11 Temperature & Humidity Sensor (GPIO4)
-- WiFi Connectivity
-
-**Software Features:**
-- WiFi station mode
-- MQTT client (PubSubClient library)
-- JSON serialization (ArduinoJson)
-- Simulated sensors (vibration, power) correlated to real temperature data
-- 5-second publish interval
-
-### 2. Communication Layer - MQTT Broker (Mosquitto)
-**Security:**
-- TLS encryption on port 8883
-- mTLS (mutual TLS) with CA, client, and broker certificates
-- Certificate generation via generate_certs.sh
-- WebSocket support (port 9001)
-
-**Configuration:**
-- Containerized via Docker Compose
-- Persistent data and logs
-- Auto-restart policy
-
-### 3. AI Agent - Python (multi_sensors_agent.py)
-**Key Modules:**
-
-| Module | Purpose |
-|--------|---------|
-| MQTT Subscriber | Connects to broker, subscribes to sensor topic |
-| Trigger Logic | Evaluates 3 types of anomalies: Hard thresholds, multi-signal correlation, rapid changes |
-| Alert Cooldown Manager | Exponential backoff to prevent alert fatigue |
-| Gemma 4 Integration | Local LLM for contextual analysis |
-| Supabase ETL | Inserts readings and alerts into database |
-
-**Trigger Types:**
-1. **Hard Thresholds**: Single signal exceeds limits
-2. **Multi-Signal Correlation**: ≥3 signals deviate from baseline simultaneously
-3. **Rapid Change**: Temperature changes ≥3°C in 3 readings
-
-### 4. Database - Supabase
-**Schema:**
-- `devices`: Device inventory
-- `sensor_readings`: Time-series sensor data (indexed for performance)
-- `alerts`: AI-generated alerts with severity
-
-**Security:**
-- Row Level Security (RLS) enabled
-- Authenticated users can read
-- Service role for ETL inserts
-- Realtime subscriptions for mobile app
-
-### 5. Mobile App - Expo (React Native)
-**Features:**
-- Auth (email) + guest read mode
-- Live dashboard with health status and 4-signal metrics
-- Alerts with filters, detail, resolve
-- History + devices tabs
-- Realtime subscriptions via Supabase
-- Settings (account, connection, thresholds)
-
-See `mobile_app/README.md`.
-
----
-
-## Real-World Industry Applications
-
-### 1. Manufacturing Plants
-**Use Case**: Motor health monitoring on production lines
-**Benefit**: Prevents unplanned downtime, reduces maintenance costs, extends motor lifespan
-
-### 2. Mining & Heavy Industry
-**Use Case**: Monitor motors in conveyor systems, crushers, and excavators
-**Benefit**: Early detection of bearing wear, overheating, and electrical issues
-
-### 3. Power Plants
-**Use Case**: Generator and pump motor monitoring
-**Benefit**: Ensures continuous power generation, avoids catastrophic failures
-
-### 4. Logistics & Warehousing
-**Use Case**: Conveyor belt motors and automated guided vehicles (AGVs)
-**Benefit**: Maintains smooth operations in distribution centers
-
-### 5. Agriculture (Irrigation Systems)
-**Use Case**: Pump motor monitoring for irrigation
-**Benefit**: Prevents crop loss due to pump failures, optimizes water usage
-
----
-
-## Problems Solved
-
-### 1. Traditional Threshold-Based Monitoring Limitations
-- **Problem**: Single-signal alerts miss correlated failure patterns
-- **Solution**: Multi-signal correlation with AI contextual analysis
-
-### 2. Alert Fatigue
-- **Problem**: Too many false positives lead to ignored alerts
-- **Solution**: Exponential backoff cooldown + severity-based escalation
-
-### 3. Cloud Dependency & Latency
-- **Problem**: Sending raw data to cloud for AI causes latency and costs
-- **Solution**: Local AI processing via Ollama (edge AI)
-
-### 4. Lack of Actionable Insights
-- **Problem**: Alerts without context lead to slow response
-- **Solution**: Gemma 4 provides severity assessment + specific recommendations
-
-### 5. Security Concerns
-- **Problem**: Unencrypted IoT communication is vulnerable
-- **Solution**: TLS/mTLS encryption + Supabase RLS for data security
-
----
-
-## Setup Guide
-
-### Prerequisites
-- Python 3.8+
-- Docker & Docker Compose
-- Ollama installed locally
-- ESP32 board + DHT11 sensor
-- Supabase account
-- Node.js (for mobile app)
-
-### Step 1: Clone & Configure
+### 1. Generate SAN-Compliant PKI Certificates & Local Env
 ```bash
-git clone <repo>
-cd Multi-Sensor-AI-Agent
-cp .env.example .env
-# Edit .env with your credentials
+make init
+```
+Generates a Root CA, a SAN-compliant EMQX broker certificate (`localhost`, `emqx`, `127.0.0.1`, plus your host LAN IP), an ingestor service certificate (`CN=service:ingestor`), and copies `.env.saas.example` → `.env.saas`.
+
+### 2. Boot the Full Localhost SaaS Stack
+```bash
+make up
+```
+Builds and starts PostgreSQL/TimescaleDB, Valkey, NATS JetStream, EMQX, Object Storage, Mailpit, FastAPI API, MQTT Ingestor, Per-Device Rules Engine, AI Copilot Worker, Web Control Room, and Nginx Gateway (`http://localhost:8080`).
+
+### 3. Run Database Migrations & Seed 2 Isolated Demo Factories
+```bash
+make migrate
+make seed
+```
+Seeds two completely isolated tenants with 6 machines, unique X.509 mTLS certificates, and pre-indexed `pgvector` maintenance manuals:
+
+| Account | Email | Password | Scope |
+|---|---|---|---|
+| **Multi-Factory Admin** | `admin@future-eagle.io` | `DemoPassword123!` | Switch between **Acme Packaging** & **Nordic Cold Storage** |
+| **Acme Packaging Manager** | `manager@acme-plant.io` | `DemoPassword123!` | Isolated to Acme Packaging (Porto) |
+| **Nordic Cold Engineer** | `ops@nordic-cold.io` | `DemoPassword123!` | Isolated to Nordic Cold Storage (Gothenburg) |
+
+### 4. Start the Virtual Multi-Factory Simulator & Inject Live Faults
+```bash
+make sim
+```
+Connects 6 virtual machines across both factories over verified mTLS (`:8883`). Now open **`http://localhost:8080`** and trigger live industrial faults:
+
+```bash
+# Multi-signal bearing wear correlation (triggers RAG AI diagnosis + Mailpit alert email!)
+make fault DEVICE=acme-motor-01 TYPE=bearing_wear TTL=60
+
+# Sudden overheat on Nordic Cold Storage compressor (strictly isolated from Acme!)
+make fault DEVICE=nordic-comp-01 TYPE=overheat TTL=45
+
+# Simulate power loss (triggers MQTT Last Will & Testament -> OFFLINE status)
+make fault DEVICE=acme-pump-02 TYPE=offline TTL=30
+
+# Clear active fault
+make fault DEVICE=acme-motor-01 TYPE=clear
 ```
 
-### Step 2: Generate Certificates
+Check captured alert & invite emails at **`http://localhost:8025`** (Mailpit).
+
+---
+
+## Running Automated Tests & Resource Check
+
 ```bash
-chmod +x generate_certs.sh
-./generate_certs.sh
-```
+# Unit tests (ISO 20816, correlation rules, per-device cooldowns) + Multi-tenant RLS integration tests
+make test
 
-### Step 3: Start MQTT Broker
-```bash
-docker-compose up -d
-```
-
-### Step 4: Install Python Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### Step 5: Pull Gemma 4 Model
-```bash
-ollama pull gemma4:4b
-```
-
-### Step 6: Set Up Supabase
-1. Create new Supabase project
-2. Run schema.sql in SQL Editor
-3. Get URL and Service Role key
-
-### Step 7: Flash ESP32
-1. Open esp32_dht11.ino in Arduino IDE
-2. Update WiFi/MQTT credentials
-3. Flash to ESP32
-
-### Step 8: Run AI Agent
-```bash
-python multi_sensors_agent.py
-```
-
-### Step 9: Run Mobile App
-```bash
-cd mobile_app
-cp .env.example .env
-# Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
-npm install
-npx expo start
+# Check live RAM / CPU usage across all containers
+make stats
 ```
 
 ---
 
-## Future Enhancements
-1. Add real vibration/power sensors (replace simulation)
-2. Implement historical trend analysis
-3. Add predictive maintenance models
-4. Support multiple motors/devices
-5. Add email/SMS alert notifications
-6. Implement OTA (Over-The-Air) updates for ESP32
-7. Add data visualization dashboards (Grafana)
+## Switching AI Copilot Provider
+
+Edit `.env.saas` and restart `ai-worker` (`docker compose --env-file .env.saas up -d ai-worker`):
+- **Default (`LLM_PROVIDER=mock`)**: Deterministic, grounded structured JSON diagnostics (0 MB extra RAM).
+- **Google Gemini (`LLM_PROVIDER=gemini`)**: Set `GEMINI_API_KEY=...` (zero AWS / zero Cloudflare).
+- **Mistral AI (`LLM_PROVIDER=mistral`)**: Set `MISTRAL_API_KEY=...` (EU sovereign AI).
+- **Local Ollama (`LLM_PROVIDER=ollama`)**: Start optional profile `docker compose --env-file .env.saas --profile local-ai up -d` and pull a lightweight model (`docker exec eagle-ollama ollama pull qwen2.5:1.5b`).
 
 ---
 
-## License
-See LICENSE file for details.
+## Connecting a Physical ESP32 & Mobile App
+
+1. **ESP32 (`firmware/esp32_sensor_node/`):**
+   - Copy `secrets.example.h` → `secrets.h` (gitignored).
+   - Provision a device in **Web Control Room → Devices & PKI** and paste its `ca.crt`, `client.crt`, and `client.key` along with your LAN IP (`MQTT_BROKER`) into `secrets.h`.
+   - Flash `esp32_sensor_node.ino` to your ESP32 (DHT11 on GPIO4, 115200 baud).
+2. **Mobile App (`mobile_app/`):**
+   ```bash
+   cd mobile_app
+   cp .env.example .env   # Set EXPO_PUBLIC_API_URL=http://<YOUR_LAN_IP>:8080/api/v1
+   npm install
+   npx expo start
+   ```
+
+---
+
+## Deploying to Production (Zero AWS / Zero Cloudflare)
+
+This stack maps 1:1 to production with no architectural rewrites:
+1. **Compute:** Deploy this `docker-compose.yml` onto **Hetzner Cloud** / **Scaleway** / **DigitalOcean** using **Coolify** or **Dokploy**.
+2. **DNS, CDN & WAF:** Point your domain through **Bunny.net** (Bunny DNS + Bunny Shield) and terminate TLS with **Caddy** + **CrowdSec**.
+3. **Object Storage:** Swap `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` in `.env.saas` to **Hetzner Object Storage**, **Scaleway Object Storage**, or **Backblaze B2**.
+4. **Email & SMS:** Swap `SMTP_*` from Mailpit to **Brevo** or **Postmark**, and add **Telnyx** / **Vonage** webhooks for 24/7 critical escalation.
+5. **Backups:** Run encrypted daily `pg_dump` / `pgBackRest` archives to **Hetzner Storage Box** or **Backblaze B2**.

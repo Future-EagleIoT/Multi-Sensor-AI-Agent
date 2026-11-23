@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { useTelemetry } from '../context/TelemetryContext';
-import { useAuth } from '../context/AuthContext';
 import { PrimaryButton, Screen, StatusChip } from '../components/ui';
 import { colors, radii, spacing } from '../theme/tokens';
 import { formatDateTime } from '../utils/format';
@@ -9,13 +8,17 @@ import { severityTone } from '../utils/health';
 
 export default function AlertDetailScreen({ route, navigation }) {
   const { id } = route.params;
-  const { alerts, resolveAlert } = useTelemetry();
-  const { isGuest } = useAuth();
+  const { assets, alerts, updateAlertStatus } = useTelemetry();
+  const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
 
   const alert = useMemo(
     () => alerts.find((a) => String(a.id) === String(id)),
     [alerts, id],
+  );
+  const assetName = useMemo(
+    () => assets.find((a) => a.id === alert?.asset_id)?.name || alert?.asset_id,
+    [assets, alert],
   );
 
   if (!alert) {
@@ -29,10 +32,12 @@ export default function AlertDetailScreen({ route, navigation }) {
     );
   }
 
-  const onResolve = async () => {
-    if (isGuest) return;
+  const resolved = ['resolved', 'false_positive'].includes(alert.status);
+  const diag = alert.ai_diagnosis;
+
+  const setStatus = async (nextStatus) => {
     setBusy(true);
-    await resolveAlert(alert.id);
+    await updateAlertStatus(alert.id, nextStatus, notes.trim() || undefined);
     setBusy(false);
   };
 
@@ -40,32 +45,73 @@ export default function AlertDetailScreen({ route, navigation }) {
     <Screen>
       <ScrollView contentContainerStyle={styles.wrap}>
         <View style={styles.row}>
-          <Text style={styles.device}>{alert.device_id}</Text>
+          <Text style={styles.device}>{assetName}</Text>
           <StatusChip
-            tone={alert.is_resolved ? 'ok' : severityTone(alert.severity)}
-            label={alert.is_resolved ? 'Resolved' : alert.severity}
+            tone={resolved ? 'ok' : severityTone(alert.severity)}
+            label={resolved ? alert.status : alert.severity}
           />
         </View>
-        <Text style={styles.time}>{formatDateTime(alert.timestamp)}</Text>
+        <Text style={styles.time}>{formatDateTime(alert.created_at)}</Text>
 
-        <Text style={styles.section}>AI analysis</Text>
+        <Text style={styles.section}>Trigger</Text>
         <View style={styles.card}>
-          <Text style={styles.message}>{alert.message}</Text>
+          <Text style={styles.message}>{alert.trigger_reason}</Text>
         </View>
 
-        {!alert.is_resolved && (
+        <Text style={styles.section}>AI Copilot Diagnosis</Text>
+        <View style={styles.card}>
+          {diag ? (
+            <>
+              <Text style={styles.message}>{diag.summary}</Text>
+              <Text style={styles.subLabel}>Probable Root Cause</Text>
+              <Text style={styles.subBody}>{diag.probable_root_cause}</Text>
+              {diag.cited_manual_section ? (
+                <>
+                  <Text style={styles.subLabel}>Manual Citation (RAG)</Text>
+                  <Text style={styles.subBody}>{diag.cited_manual_section}</Text>
+                </>
+              ) : null}
+              <Text style={styles.subLabel}>Immediate Actions</Text>
+              {(diag.immediate_actions || []).map((step, i) => (
+                <Text key={i} style={styles.step}>
+                  • {step}
+                </Text>
+              ))}
+              <Text style={styles.safety}>Safety: {diag.safety_precaution}</Text>
+            </>
+          ) : (
+            <Text style={styles.subBody}>AI enrichment in progress…</Text>
+          )}
+        </View>
+
+        {!resolved && (
           <>
-            {isGuest ? (
-              <Text style={styles.hint}>
-                Sign in with an authenticated account to resolve alerts (RLS update policy).
-              </Text>
-            ) : (
-              <PrimaryButton
-                label={busy ? 'Resolving…' : 'Mark resolved'}
-                onPress={onResolve}
-                disabled={busy}
-              />
+            <Text style={styles.section}>Technician Notes</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Inspected DE bearing, re-greased coupling"
+              placeholderTextColor={colors.inkFaint}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+            />
+            <View style={{ height: spacing.md }} />
+            {alert.status === 'open' && (
+              <>
+                <PrimaryButton
+                  label="Acknowledge"
+                  variant="ghost"
+                  onPress={() => setStatus('acknowledged')}
+                  disabled={busy}
+                />
+                <View style={{ height: spacing.sm }} />
+              </>
             )}
+            <PrimaryButton
+              label={busy ? 'Saving…' : 'Mark Resolved'}
+              onPress={() => setStatus('resolved')}
+              disabled={busy}
+            />
           </>
         )}
       </ScrollView>
@@ -82,13 +128,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   device: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: colors.ink,
     flex: 1,
     paddingRight: spacing.sm,
   },
-  time: { color: colors.inkFaint, marginBottom: spacing.xl },
+  time: { color: colors.inkFaint, marginBottom: spacing.lg },
   section: {
     fontSize: 12,
     fontWeight: '700',
@@ -102,17 +148,51 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
   message: {
     color: colors.ink,
     fontSize: 15,
     lineHeight: 22,
   },
-  hint: {
+  subLabel: {
+    marginTop: spacing.md,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accentInk,
+    textTransform: 'uppercase',
+  },
+  subBody: {
+    marginTop: 4,
     color: colors.inkMuted,
+    fontSize: 14,
     lineHeight: 20,
+  },
+  step: {
+    marginTop: 4,
+    color: colors.ink,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  safety: {
+    marginTop: spacing.md,
+    padding: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  input: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    minHeight: 72,
+    color: colors.ink,
+    textAlignVertical: 'top',
   },
   title: {
     fontSize: 18,

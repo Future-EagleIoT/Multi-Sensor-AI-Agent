@@ -6,7 +6,7 @@ import { colors, radii, spacing } from '../theme/tokens';
 import { formatClock, fmtNum } from '../utils/format';
 
 export default function HistoryScreen() {
-  const { readings, loading, refreshing, refresh } = useTelemetry();
+  const { selectedAsset, readings, loading, refreshing, refresh } = useTelemetry();
 
   if (loading) {
     return (
@@ -20,11 +20,13 @@ export default function HistoryScreen() {
     <Screen>
       <View style={styles.header}>
         <Text style={styles.title}>History</Text>
-        <Text style={styles.sub}>Latest {readings.length} readings</Text>
+        <Text style={styles.sub}>
+          {selectedAsset?.name || 'No asset'} · latest {readings.length} readings
+        </Text>
       </View>
       <FlatList
         data={readings}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item, idx) => `${item.timestamp || item.time}-${idx}`}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
@@ -32,14 +34,14 @@ export default function HistoryScreen() {
         ListEmptyComponent={
           <EmptyState
             title="No readings yet"
-            body="Telemetry history appears after the agent inserts into sensor_readings."
+            body="Telemetry history streams from TimescaleDB once the device publishes."
           />
         }
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={styles.rowTop}>
-              <Text style={styles.device}>{item.device_id}</Text>
-              <Text style={styles.time}>{formatClock(item.timestamp)}</Text>
+              <Text style={styles.device}>ISO Zone {item.iso_zone || '—'}</Text>
+              <Text style={styles.time}>{formatClock(item.timestamp || item.time)}</Text>
             </View>
             <Text style={styles.metrics}>
               {fmtNum(item.temperature)}°C · {fmtNum(item.humidity)}% ·{' '}

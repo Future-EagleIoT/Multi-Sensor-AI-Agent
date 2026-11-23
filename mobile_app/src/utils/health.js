@@ -1,5 +1,3 @@
-import { thresholds } from '../theme/tokens';
-
 export function severityTone(severity) {
   const s = (severity || '').toUpperCase();
   if (s === 'CRITICAL') return 'critical';
@@ -7,44 +5,41 @@ export function severityTone(severity) {
   return 'ok';
 }
 
-export function evaluateReadingHealth(reading) {
-  if (!reading) {
-    return { status: 'UNKNOWN', label: 'Waiting for data', tone: 'neutral' };
+/**
+ * Single source of truth: maps backend-computed asset.health_status to UI banner state.
+ */
+export function healthFromStatus(status) {
+  const s = (status || 'UNKNOWN').toUpperCase();
+  if (s === 'CRITICAL') {
+    return { status: 'CRITICAL', label: 'Critical fault active — inspect immediately', tone: 'critical' };
   }
-
-  const breaches = [];
-  if (Number(reading.temperature) >= thresholds.temperature) breaches.push('temperature');
-  if (Number(reading.humidity) >= thresholds.humidity) breaches.push('humidity');
-  if (Number(reading.vibration_hz) >= thresholds.vibration_hz) breaches.push('vibration');
-  if (Number(reading.power_w) >= thresholds.power_w) breaches.push('power');
-
-  if (breaches.length >= 2) {
-    return {
-      status: 'CRITICAL',
-      label: 'Critical — multi-signal breach',
-      tone: 'critical',
-      breaches,
-    };
+  if (s === 'WARNING') {
+    return { status: 'WARNING', label: 'Early anomaly or correlation warning', tone: 'warning' };
   }
-  if (breaches.length === 1) {
-    return {
-      status: 'WARNING',
-      label: `Warning — ${breaches[0]} high`,
-      tone: 'warning',
-      breaches,
-    };
+  if (s === 'MAINTENANCE') {
+    return { status: 'MAINTENANCE', label: 'Planned maintenance mode — alerts muted', tone: 'neutral' };
   }
-
-  return {
-    status: 'NOMINAL',
-    label: 'All signals nominal',
-    tone: 'ok',
-    breaches: [],
-  };
+  if (s === 'OFFLINE') {
+    return { status: 'OFFLINE', label: 'Sensor offline (MQTT LWT received)', tone: 'critical' };
+  }
+  if (s === 'NOMINAL') {
+    return { status: 'NOMINAL', label: 'All signals within asset profile limits', tone: 'ok' };
+  }
+  return { status: 'UNKNOWN', label: 'Waiting for telemetry from device', tone: 'neutral' };
 }
 
-export function metricStatus(key, value) {
-  const limit = thresholds[key];
-  if (limit == null || value == null) return 'ok';
-  return Number(value) >= limit ? (key === 'humidity' ? 'warning' : 'critical') : 'ok';
+export function metricStatus(key, value, profile) {
+  if (value == null || !profile) return 'ok';
+  const v = Number(value);
+  const map = {
+    temperature: [profile.warn_temp, profile.crit_temp],
+    humidity: [profile.warn_humidity, profile.crit_humidity],
+    vibration_hz: [profile.warn_vibration_hz, profile.crit_vibration_hz],
+    power_w: [profile.warn_power_w, profile.crit_power_w],
+  };
+  const limits = map[key];
+  if (!limits) return 'ok';
+  if (v >= limits[1]) return 'critical';
+  if (v >= limits[0]) return 'warning';
+  return 'ok';
 }

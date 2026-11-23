@@ -26,7 +26,7 @@ const UNITS = {
   power_w: 'W',
 };
 
-export function MetricGrid({ reading }) {
+export function MetricGrid({ reading, profile }) {
   const keys = ['temperature', 'humidity', 'vibration_hz', 'power_w'];
   return (
     <View style={styles.grid}>
@@ -35,15 +35,16 @@ export function MetricGrid({ reading }) {
           key={key}
           metricKey={key}
           value={reading?.[key]}
+          profile={profile}
         />
       ))}
     </View>
   );
 }
 
-function MetricCard({ metricKey, value }) {
+function MetricCard({ metricKey, value, profile }) {
   const Icon = ICONS[metricKey];
-  const status = metricStatus(metricKey, value);
+  const status = metricStatus(metricKey, value, profile);
   const accent =
     status === 'critical'
       ? colors.critical

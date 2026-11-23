@@ -23,8 +23,11 @@ import { colors, radii, spacing } from '../theme/tokens';
 import { formatRelative, formatClock } from '../utils/format';
 
 export default function DashboardScreen({ navigation }) {
-  const { isGuest } = useAuth();
+  const { user } = useAuth();
   const {
+    assets,
+    selectedAsset,
+    setSelectedAssetId,
     latest,
     health,
     openAlerts,
@@ -36,10 +39,12 @@ export default function DashboardScreen({ navigation }) {
     resolveAlert,
   } = useTelemetry();
 
+  const assetNames = Object.fromEntries(assets.map((a) => [a.id, a.name]));
+
   if (loading) {
     return (
       <Screen>
-        <LoadingBlock label="Connecting to telemetry…" />
+        <LoadingBlock label="Connecting to factory telemetry…" />
       </Screen>
     );
   }
@@ -53,20 +58,43 @@ export default function DashboardScreen({ navigation }) {
         }
       >
         <View style={styles.hero}>
-          <View>
-            <Text style={styles.kicker}>Live motor health</Text>
-            <Text style={styles.device}>{latest?.device_id || 'No device yet'}</Text>
+          <View style={{ flex: 1, paddingRight: spacing.sm }}>
+            <Text style={styles.kicker}>{user?.activeOrg?.name || 'Factory'}</Text>
+            <Text style={styles.device}>{selectedAsset?.name || 'No assets yet'}</Text>
           </View>
           <StatusChip
             tone={live ? 'live' : 'neutral'}
-            label={live ? 'Realtime' : 'Polling'}
+            label={live ? 'WS Live' : 'Reconnecting'}
           />
         </View>
+
+        {/* Multi-asset picker (fixes single-device assumption) */}
+        {assets.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
+            {assets.map((asset) => {
+              const active = asset.id === selectedAsset?.id;
+              return (
+                <Pressable
+                  key={asset.id}
+                  onPress={() => setSelectedAssetId(asset.id)}
+                  style={[styles.assetPill, active && styles.assetPillActive]}
+                >
+                  <Text style={[styles.assetPillText, active && styles.assetPillTextActive]}>
+                    {asset.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={[styles.healthBanner, styles[`tone_${health.tone}`] || styles.tone_neutral]}>
           <Radio size={18} color={colors.ink} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.healthStatus}>{health.status}</Text>
+            <Text style={styles.healthStatus}>
+              {health.status}
+              {latest?.iso_zone ? ` · ISO Zone ${latest.iso_zone}` : ''}
+            </Text>
             <Text style={styles.healthLabel}>{health.label}</Text>
           </View>
           <Text style={styles.clock}>{formatClock(latest?.timestamp)}</Text>
@@ -74,13 +102,13 @@ export default function DashboardScreen({ navigation }) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <SectionTitle>Signals</SectionTitle>
+        <SectionTitle>Live Signals</SectionTitle>
         {latest ? (
-          <MetricGrid reading={latest} />
+          <MetricGrid reading={latest} profile={selectedAsset?.profile} />
         ) : (
           <EmptyState
-            title="Waiting for ESP32 data"
-            body="Start Mosquitto, the Python agent, and flash the ESP32 so readings land in Supabase."
+            title="Waiting for device telemetry"
+            body="Start the virtual fleet simulator (`make sim`) or connect your mTLS ESP32 node."
           />
         )}
 
@@ -96,15 +124,16 @@ export default function DashboardScreen({ navigation }) {
 
         {openAlerts.length === 0 ? (
           <View style={styles.quiet}>
-            <Text style={styles.quietText}>No open alerts. System quiet.</Text>
+            <Text style={styles.quietText}>No active alerts. Fleet operating normally.</Text>
           </View>
         ) : (
           openAlerts.slice(0, 3).map((alert) => (
             <AlertCard
               key={alert.id}
               alert={alert}
+              assetName={assetNames[alert.asset_id]}
               onPress={() => navigation.navigate('AlertDetail', { id: alert.id })}
-              onResolve={isGuest ? undefined : resolveAlert}
+              onResolve={resolveAlert}
             />
           ))
         )}
@@ -126,7 +155,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   kicker: {
     color: colors.inkFaint,
@@ -137,9 +166,33 @@ const styles = StyleSheet.create({
   },
   device: {
     marginTop: 4,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: colors.ink,
+  },
+  pickerRow: {
+    marginBottom: spacing.md,
+  },
+  assetPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+  },
+  assetPillActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  assetPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.inkMuted,
+  },
+  assetPillTextActive: {
+    color: colors.white,
   },
   healthBanner: {
     flexDirection: 'row',

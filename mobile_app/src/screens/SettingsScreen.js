@@ -1,64 +1,80 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTelemetry } from '../context/TelemetryContext';
 import { PrimaryButton, Screen, StatusChip } from '../components/ui';
+import { API_URL } from '../services/api';
 import { colors, radii, spacing } from '../theme/tokens';
-import { isSupabaseConfigured } from '../services/supabase';
-import { thresholds, baselines } from '../theme/tokens';
 
 export default function SettingsScreen() {
-  const { user, signOut, isGuest } = useAuth();
-  const { live, openAlerts, readings } = useTelemetry();
+  const { user, signOut, switchOrg } = useAuth();
+  const { live, openAlerts, readings, selectedAsset } = useTelemetry();
+  const profile = selectedAsset?.profile;
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.wrap}>
         <Text style={styles.title}>Settings</Text>
 
-        <Text style={styles.section}>Account</Text>
+        <Text style={styles.section}>Account & Active Tenant</Text>
         <View style={styles.card}>
           <Text style={styles.label}>Signed in as</Text>
-          <Text style={styles.value}>{user?.email || '—'}</Text>
+          <Text style={styles.value}>{user?.fullName || user?.email || '—'}</Text>
+          <Text style={styles.sub}>{user?.email}</Text>
           <View style={{ height: spacing.sm }} />
           <StatusChip
-            tone={isGuest ? 'warning' : 'ok'}
-            label={isGuest ? 'Guest (read-only resolve)' : 'Authenticated'}
+            tone="ok"
+            label={`${user?.activeOrg?.name || 'Factory'} (${user?.activeOrg?.role || 'member'})`}
           />
         </View>
 
-        <Text style={styles.section}>Connection</Text>
+        {user?.organizations?.length > 1 && (
+          <>
+            <Text style={styles.section}>Switch Factory Tenant</Text>
+            <View style={styles.card}>
+              {user.organizations.map((org) => {
+                const active = org.id === user.activeOrg?.id;
+                return (
+                  <Pressable
+                    key={org.id}
+                    onPress={() => !active && switchOrg(org.id)}
+                    style={[styles.orgRow, active && styles.orgRowActive]}
+                  >
+                    <Text style={[styles.orgName, active && { color: colors.accent }]}>
+                      {org.name}
+                    </Text>
+                    <Text style={styles.rowValue}>{active ? 'Active' : org.role}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        <Text style={styles.section}>Backend Connection</Text>
         <View style={styles.card}>
-          <Row label="Supabase configured" value={isSupabaseConfigured ? 'Yes' : 'No'} />
-          <Row label="Realtime" value={live ? 'Subscribed' : 'Idle'} />
-          <Row label="Cached readings" value={String(readings.length)} />
+          <Row label="API" value={API_URL} />
+          <Row label="WebSocket" value={live ? 'Connected' : 'Reconnecting'} />
+          <Row label="Buffered ticks" value={String(readings.length)} />
           <Row label="Open alerts" value={String(openAlerts.length)} />
         </View>
 
-        <Text style={styles.section}>Agent thresholds (display)</Text>
-        <View style={styles.card}>
-          <Row label="Temp critical" value={`≥ ${thresholds.temperature} °C`} />
-          <Row label="Humidity" value={`≥ ${thresholds.humidity} %`} />
-          <Row label="Vibration" value={`≥ ${thresholds.vibration_hz} Hz`} />
-          <Row label="Power" value={`≥ ${thresholds.power_w} W`} />
-        </View>
+        {profile && (
+          <>
+            <Text style={styles.section}>Selected Asset Limits ({selectedAsset.name})</Text>
+            <View style={styles.card}>
+              <Row label="Temp (warn / crit)" value={`${profile.warn_temp} / ${profile.crit_temp} °C`} />
+              <Row label="Humidity (warn / crit)" value={`${profile.warn_humidity} / ${profile.crit_humidity} %`} />
+              <Row label="Vibration (warn / crit)" value={`${profile.warn_vibration_hz} / ${profile.crit_vibration_hz} Hz`} />
+              <Row label="Power (warn / crit)" value={`${profile.warn_power_w} / ${profile.crit_power_w} W`} />
+            </View>
+          </>
+        )}
 
-        <Text style={styles.section}>Baselines (healthy idle)</Text>
-        <View style={styles.card}>
-          <Row label="Temperature" value={`${baselines.temperature} °C`} />
-          <Row label="Humidity" value={`${baselines.humidity} %`} />
-          <Row label="Vibration" value={`${baselines.vibration_hz} Hz`} />
-          <Row label="Power" value={`${baselines.power_w} W`} />
-        </View>
-
-        <PrimaryButton
-          label="Sign out"
-          variant="danger"
-          onPress={signOut}
-        />
+        <PrimaryButton label="Sign out" variant="danger" onPress={signOut} />
 
         <Text style={styles.footer}>
-          Future Eagle IoT · Multi-Sensor AI Agent · Expo mobile client
+          Future Eagle IIoT SaaS · Multi-Tenant Field Ops Client
         </Text>
       </ScrollView>
     </Screen>
@@ -69,7 +85,9 @@ function Row({ label, value }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={styles.rowValue} numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -112,9 +130,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 2,
   },
+  sub: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  orgRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: radii.sm,
+  },
+  orgRowActive: {
+    backgroundColor: colors.accentSoft,
+  },
+  orgName: {
+    fontWeight: '700',
+    color: colors.ink,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
     paddingVertical: 6,
   },
   rowLabel: {
@@ -123,6 +161,7 @@ const styles = StyleSheet.create({
   rowValue: {
     color: colors.ink,
     fontWeight: '600',
+    flexShrink: 1,
   },
   footer: {
     marginTop: spacing.xl,

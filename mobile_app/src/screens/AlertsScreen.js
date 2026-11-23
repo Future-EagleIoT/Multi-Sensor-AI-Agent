@@ -1,27 +1,30 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, Pressable } from 'react-native';
 import { useTelemetry } from '../context/TelemetryContext';
-import { useAuth } from '../context/AuthContext';
 import { AlertCard } from '../components/AlertCard';
 import { EmptyState, LoadingBlock, Screen, StatusChip } from '../components/ui';
 import { colors, spacing } from '../theme/tokens';
 
 const FILTERS = [
-  { key: 'open', label: 'Open' },
+  { key: 'open', label: 'Active' },
   { key: 'all', label: 'All' },
   { key: 'CRITICAL', label: 'Critical' },
   { key: 'WARNING', label: 'Warning' },
 ];
 
 export default function AlertsScreen({ navigation }) {
-  const { isGuest } = useAuth();
-  const { alerts, loading, refreshing, refresh, resolveAlert } = useTelemetry();
+  const { assets, alerts, loading, refreshing, refresh, resolveAlert } = useTelemetry();
   const [filter, setFilter] = useState('open');
   const [resolvingId, setResolvingId] = useState(null);
 
+  const assetNames = useMemo(
+    () => Object.fromEntries(assets.map((a) => [a.id, a.name])),
+    [assets],
+  );
+
   const data = useMemo(() => {
     return alerts.filter((a) => {
-      if (filter === 'open') return !a.is_resolved;
+      if (filter === 'open') return !['resolved', 'false_positive'].includes(a.status);
       if (filter === 'all') return true;
       return a.severity === filter;
     });
@@ -75,14 +78,15 @@ export default function AlertsScreen({ navigation }) {
         ListEmptyComponent={
           <EmptyState
             title="No alerts in this filter"
-            body="When the AI agent fires, analyses appear here in realtime."
+            body="When the rules & AI engine detects anomalies, diagnostics stream here in real time."
           />
         }
         renderItem={({ item }) => (
           <AlertCard
             alert={item}
+            assetName={assetNames[item.asset_id]}
             resolving={resolvingId === item.id}
-            onResolve={isGuest ? undefined : onResolve}
+            onResolve={onResolve}
             onPress={() => navigation.navigate('AlertDetail', { id: item.id })}
           />
         )}

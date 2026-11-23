@@ -6,9 +6,10 @@ import { formatDateTime } from '../utils/format';
 import { severityTone } from '../utils/health';
 import { StatusChip } from './ui';
 
-export function AlertCard({ alert, onPress, onResolve, resolving }) {
+export function AlertCard({ alert, assetName, onPress, onResolve, resolving }) {
   const tone = severityTone(alert.severity);
-  const resolved = Boolean(alert.is_resolved);
+  const resolved = ['resolved', 'false_positive'].includes(alert.status);
+  const summary = alert.ai_diagnosis?.summary || alert.trigger_reason || 'Alert triggered';
 
   return (
     <Pressable
@@ -25,18 +26,20 @@ export function AlertCard({ alert, onPress, onResolve, resolving }) {
               color={tone === 'critical' ? colors.critical : colors.warning}
             />
           )}
-          <Text style={styles.device}>{alert.device_id}</Text>
+          <Text style={styles.device} numberOfLines={1}>
+            {assetName || alert.asset_name || alert.asset_id}
+          </Text>
         </View>
         <StatusChip
           tone={resolved ? 'ok' : tone}
-          label={resolved ? 'Resolved' : alert.severity}
+          label={resolved ? alert.status : alert.severity}
         />
       </View>
       <Text style={styles.message} numberOfLines={3}>
-        {alert.message || 'No analysis message'}
+        {summary}
       </Text>
       <View style={styles.footer}>
-        <Text style={styles.time}>{formatDateTime(alert.timestamp)}</Text>
+        <Text style={styles.time}>{formatDateTime(alert.created_at)}</Text>
         {!resolved && onResolve ? (
           <Pressable
             onPress={(e) => {

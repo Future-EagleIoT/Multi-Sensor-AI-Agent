@@ -40,33 +40,41 @@ def build_incident_pdf(
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+    w = pdf.epw
 
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, _safe(f"Future Eagle IIoT - Fleet Health & Incident Report"), ln=True)
+    pdf.cell(w, 10, _safe("Future Eagle IIoT - Fleet Health & Incident Report"), new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 10)
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    pdf.cell(0, 6, _safe(f"Organization: {org_name}  |  Window: Last {period_hours}h  |  Generated: {now_str}"), ln=True)
+    pdf.cell(
+        w,
+        6,
+        _safe(f"Organization: {org_name}  |  Window: Last {period_hours}h  |  Generated: {now_str}"),
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
     pdf.ln(4)
 
     open_count = sum(1 for a in alerts if a.get("status") not in ("resolved", "false_positive"))
     crit_count = sum(1 for a in alerts if a.get("severity") == "CRITICAL")
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Executive Summary", ln=True)
+    pdf.cell(w, 8, "Executive Summary", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(
-        0,
+        w,
         6,
         _safe(
             f"Monitored Assets: {len(assets)}   |   Alerts ({period_hours}h): {len(alerts)}   |   "
             f"Critical: {crit_count}   |   Open: {open_count}"
         ),
-        ln=True,
+        new_x="LMARGIN",
+        new_y="NEXT",
     )
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Asset Health Overview", ln=True)
+    pdf.cell(w, 8, "Asset Health Overview", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9)
     for asset in assets[:25]:
         metrics = asset.get("latest_metrics") or {}
@@ -75,14 +83,14 @@ def build_incident_pdf(
             f"T: {metrics.get('temperature', '-')} C | Vib: {metrics.get('vibration_hz', '-')} Hz | "
             f"Power: {metrics.get('power_w', '-')} W"
         )
-        pdf.multi_cell(0, 5, _safe(line))
+        pdf.multi_cell(w, 5, _safe(line), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Recent Alerts & AI Diagnostics", ln=True)
+    pdf.cell(w, 8, "Recent Alerts & AI Diagnostics", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9)
     if not alerts:
-        pdf.cell(0, 6, "No alerts recorded in the selected window.", ln=True)
+        pdf.cell(w, 6, "No alerts recorded in the selected window.", new_x="LMARGIN", new_y="NEXT")
     else:
         for alert in alerts[:30]:
             created = alert.get("created_at")
@@ -91,13 +99,15 @@ def build_incident_pdf(
             summary = diag.get("summary") or alert.get("trigger_reason") or ""
             pdf.set_font("Helvetica", "B", 9)
             pdf.multi_cell(
-                0,
+                w,
                 5,
                 _safe(f"[{alert['severity']}] {ts} | Status: {alert['status']} | {alert['trigger_reason']}"),
+                new_x="LMARGIN",
+                new_y="NEXT",
             )
             pdf.set_font("Helvetica", "", 9)
             if summary:
-                pdf.multi_cell(0, 5, _safe(f"   AI Diagnosis: {summary}"))
+                pdf.multi_cell(w, 5, _safe(f"   AI Diagnosis: {summary}"), new_x="LMARGIN", new_y="NEXT")
             pdf.ln(1)
 
     return bytes(pdf.output())

@@ -9,13 +9,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../services/api';
 import { colors, radii, spacing } from '../theme/tokens';
 import { PrimaryButton, Screen } from '../components/ui';
 
 export default function LoginScreen({ navigation }) {
-  const { signIn, continueAsGuest, authError, clearError, isConfigured } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { signIn, authError, clearError } = useAuth();
+  const [email, setEmail] = useState('admin@future-eagle.io');
+  const [password, setPassword] = useState('DemoPassword123!');
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState(null);
 
@@ -39,23 +40,13 @@ export default function LoginScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-          <Text style={styles.brand}>Future Eagle IoT</Text>
-          <Text style={styles.title}>Motor Health</Text>
+          <Text style={styles.brand}>Future Eagle IIoT SaaS</Text>
+          <Text style={styles.title}>Field Ops Console</Text>
           <Text style={styles.sub}>
-            Sign in to monitor live telemetry, AI alerts, and device status.
+            Multi-tenant industrial monitoring connected to {API_URL}.
           </Text>
 
-          {!isConfigured ? (
-            <View style={styles.warnBox}>
-              <Text style={styles.warnTitle}>Configure Supabase</Text>
-              <Text style={styles.warnBody}>
-                Copy mobile_app/.env.example to .env and set EXPO_PUBLIC_SUPABASE_URL
-                and EXPO_PUBLIC_SUPABASE_ANON_KEY, then restart Expo.
-              </Text>
-            </View>
-          ) : null}
-
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>Work Email</Text>
           <TextInput
             style={styles.input}
             autoCapitalize="none"
@@ -63,7 +54,7 @@ export default function LoginScreen({ navigation }) {
             autoComplete="email"
             value={email}
             onChangeText={setEmail}
-            placeholder="you@plant.com"
+            placeholder="manager@acme.local"
             placeholderTextColor={colors.inkFaint}
           />
 
@@ -81,26 +72,18 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.error}>{localError || authError}</Text>
           )}
 
+          <View style={{ height: spacing.md }} />
           <PrimaryButton
             label={busy ? 'Signing in…' : 'Sign in'}
             onPress={onSubmit}
-            disabled={busy || !isConfigured}
+            disabled={busy}
           />
 
           <View style={{ height: spacing.md }} />
           <PrimaryButton
-            label="Create account"
+            label="Create factory workspace"
             variant="ghost"
             onPress={() => navigation.navigate('SignUp')}
-            disabled={!isConfigured}
-          />
-
-          <View style={{ height: spacing.md }} />
-          <PrimaryButton
-            label="Continue as guest"
-            variant="ghost"
-            onPress={continueAsGuest}
-            disabled={!isConfigured}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -122,15 +105,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '800',
     color: colors.ink,
     marginBottom: spacing.sm,
   },
   sub: {
     color: colors.inkMuted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: spacing.xl,
   },
   label: {
@@ -152,21 +135,5 @@ const styles = StyleSheet.create({
   error: {
     color: colors.critical,
     marginVertical: spacing.md,
-  },
-  warnBox: {
-    backgroundColor: colors.warningSoft,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  warnTitle: {
-    fontWeight: '700',
-    color: colors.warning,
-    marginBottom: 4,
-  },
-  warnBody: {
-    color: colors.inkMuted,
-    lineHeight: 20,
-    fontSize: 13,
   },
 });

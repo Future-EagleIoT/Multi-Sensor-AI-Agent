@@ -1,98 +1,127 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { isSupabaseConfigured, supabase } from '../services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient, isApiConfigured } from '../services/api';
 
+const SESSION_KEY = 'eagle_mobile_session_v2';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
-      return;
+  const persist = useCallback(async (next) => {
+    setSession(next);
+    if (next) {
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    } else {
+      await AsyncStorage.removeItem(SESSION_KEY);
     }
+  }, []);
 
+  useEffect(() => {
     let mounted = true;
-
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!mounted) return;
-      if (error) setAuthError(error.message);
-      setSession(data.session ?? null);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-      setUser(next?.user ?? null);
-      setLoading(false);
-    });
-
+    AsyncStorage.getItem(SESSION_KEY)
+      .then((raw) => {
+        if (!mounted) return;
+        if (raw) {
+          try {
+            setSession(JSON.parse(raw));
+          } catch {
+            // ignore corrupted storage
+          }
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
     };
   }, []);
 
-  const signIn = useCallback(async (email, password) => {
-    setAuthError(null);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-      return { error };
-    }
-    return { data };
-  }, []);
+  const signIn = useCallback(
+    async (email, password) => {
+      setAuthError(null);
+      try {
+        const data = await apiClient.login(email, password);
+        await persist(data);
+        return { data };
+      } catch (error) {
+        setAuthError(error.message);
+        return { error };
+      }
+    },
+    [persist],
+  );
 
-  const signUp = useCallback(async (email, password) => {
-    setAuthError(null);
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setAuthError(error.message);
-      return { error };
-    }
-    return { data };
-  }, []);
+  const signUp = useCallback(
+    async (email, fullName, password, orgName) => {
+      setAuthError(null);
+      try {
+        const data = await apiClient.register(email, fullName, password, orgName);
+        await persist(data);
+        return { data };
+      } catch (error) {
+        setAuthError(error.message);
+        return { error };
+      }
+    },
+    [persist],
+  );
+
+  const switchOrg = useCallback(
+    async (orgId) => {
+      if (!session?.access_token) return { error: new Error('Not signed in') };
+      setAuthError(null);
+      try {
+        const data = await apiClient.switchOrg(session.access_token, orgId);
+        await persist(data);
+        return { data };
+      } catch (error) {
+        setAuthError(error.message);
+        return { error };
+      }
+    },
+    [session, persist],
+  );
 
   const signOut = useCallback(async () => {
     setAuthError(null);
-    if (user?.isGuest) {
-      setSession(null);
-      setUser(null);
-      return { error: null };
-    }
-    const { error } = await supabase.auth.signOut();
-    if (error) setAuthError(error.message);
-    setSession(null);
-    setUser(null);
-    return { error };
-  }, [user]);
+    await persist(null);
+    return { error: null };
+  }, [persist]);
 
-  const continueAsGuest = useCallback(() => {
-    // Guest uses anon key reads (schema allows anon SELECT for lab demos)
-    setSession({ guest: true });
-    setUser({ id: 'guest', email: 'guest@local', isGuest: true });
-    setLoading(false);
-  }, []);
+  const user = useMemo(
+    () =>
+      session
+        ? {
+            id: session.user_id,
+            email: session.email,
+            fullName: session.full_name,
+            activeOrg: session.active_org,
+            organizations: session.organizations || [],
+          }
+        : null,
+    [session],
+  );
 
   const value = useMemo(
     () => ({
       session,
+      token: session?.access_token ?? null,
       user,
       loading,
       authError,
-      isConfigured: isSupabaseConfigured,
-      isGuest: Boolean(user?.isGuest),
+      isConfigured: isApiConfigured,
+      isGuest: false,
       signIn,
       signUp,
+      switchOrg,
       signOut,
-      continueAsGuest,
       clearError: () => setAuthError(null),
     }),
-    [session, user, loading, authError, signIn, signUp, signOut, continueAsGuest],
+    [session, user, loading, authError, signIn, signUp, switchOrg, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

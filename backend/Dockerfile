@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -6,13 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     ca-certificates \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    libpq
 
-COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install .
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --prefer-binary --default-timeout=60 --retries=5 -r requirements.txt
 
 COPY alembic.ini ./
 COPY alembic ./alembic

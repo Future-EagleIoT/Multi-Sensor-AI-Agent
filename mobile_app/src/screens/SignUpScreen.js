@@ -14,32 +14,24 @@ import { PrimaryButton, Screen } from '../components/ui';
 
 export default function SignUpScreen({ navigation }) {
   const { signUp, authError, clearError } = useAuth();
+  const [orgName, setOrgName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [info, setInfo] = useState(null);
   const [localError, setLocalError] = useState(null);
 
   const onSubmit = async () => {
     clearError();
     setLocalError(null);
-    setInfo(null);
-    if (!email.trim() || password.length < 6) {
-      setLocalError('Use a valid email and password (min 6 characters).');
+    if (!orgName.trim() || !fullName.trim() || !email.trim() || password.length < 8) {
+      setLocalError('Fill all fields (password min 8 characters).');
       return;
     }
     setBusy(true);
-    const { data, error } = await signUp(email.trim(), password);
+    const { error } = await signUp(email.trim(), fullName.trim(), password, orgName.trim());
     setBusy(false);
-    if (error) {
-      setLocalError(error.message);
-      return;
-    }
-    if (data?.session) {
-      setInfo('Account created. You are signed in.');
-    } else {
-      setInfo('Check your email to confirm the account, then sign in.');
-    }
+    if (error) setLocalError(error.message);
   };
 
   return (
@@ -49,13 +41,30 @@ export default function SignUpScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Create account</Text>
+          <Text style={styles.title}>New Factory Tenant</Text>
           <Text style={styles.sub}>
-            Operators use authenticated sessions to resolve alerts. Confirm email
-            if your Supabase project requires it.
+            Creates an isolated organization with PostgreSQL Row-Level Security.
           </Text>
 
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>Company / Plant Name</Text>
+          <TextInput
+            style={styles.input}
+            value={orgName}
+            onChangeText={setOrgName}
+            placeholder="Apex Steel Works"
+            placeholderTextColor={colors.inkFaint}
+          />
+
+          <Text style={styles.label}>Your Full Name</Text>
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Maria Silva"
+            placeholderTextColor={colors.inkFaint}
+          />
+
+          <Text style={styles.label}>Work Email</Text>
           <TextInput
             style={styles.input}
             autoCapitalize="none"
@@ -72,17 +81,17 @@ export default function SignUpScreen({ navigation }) {
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            placeholder="Min 6 characters"
+            placeholder="Min 8 characters"
             placeholderTextColor={colors.inkFaint}
           />
 
           {(localError || authError) && (
             <Text style={styles.error}>{localError || authError}</Text>
           )}
-          {info ? <Text style={styles.info}>{info}</Text> : null}
 
+          <View style={{ height: spacing.md }} />
           <PrimaryButton
-            label={busy ? 'Creating…' : 'Sign up'}
+            label={busy ? 'Creating…' : 'Create Workspace'}
             onPress={onSubmit}
             disabled={busy}
           />
@@ -108,9 +117,9 @@ const styles = StyleSheet.create({
   },
   sub: {
     color: colors.inkMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: spacing.xl,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: spacing.lg,
   },
   label: {
     color: colors.inkMuted,
@@ -129,5 +138,4 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   error: { color: colors.critical, marginVertical: spacing.md },
-  info: { color: colors.ok, marginVertical: spacing.md, lineHeight: 20 },
 });
