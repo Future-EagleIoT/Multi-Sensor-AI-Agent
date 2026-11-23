@@ -1,25 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactElement } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { AuthStackParamList } from '../types/models';
 import { PrimaryButton, Screen } from '../components/ui';
 
-export default function SignUpScreen({ navigation }) {
+type Props = NativeStackScreenProps<AuthStackParamList, 'SignUp'>;
+
+export default function SignUpScreen({ navigation }: Props): ReactElement {
   const { signUp, authError, clearError } = useAuth();
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [localError, setLocalError] = useState(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     clearError();
@@ -92,7 +96,7 @@ export default function SignUpScreen({ navigation }) {
           <View style={{ height: spacing.md }} />
           <PrimaryButton
             label={busy ? 'Creating…' : 'Create Workspace'}
-            onPress={onSubmit}
+            onPress={() => void onSubmit()}
             disabled={busy}
           />
           <View style={{ height: spacing.md }} />

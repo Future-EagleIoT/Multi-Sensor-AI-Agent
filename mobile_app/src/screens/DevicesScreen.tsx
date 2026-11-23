@@ -1,14 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import React, { useMemo, type ReactElement } from 'react';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Cpu } from 'lucide-react-native';
 import { useTelemetry } from '../context/TelemetryContext';
 import { EmptyState, LoadingBlock, Screen, StatusChip } from '../components/ui';
 import { colors, radii, spacing } from '../theme/tokens';
 import { formatRelative } from '../utils/format';
 
-export default function DevicesScreen() {
+export default function DevicesScreen(): ReactElement {
   const { assets, devices, loading, refreshing, refresh, live } = useTelemetry();
-  const assetNames = Object.fromEntries(assets.map((a) => [a.id, a.name]));
+  const assetNames = useMemo(
+    () => Object.fromEntries(assets.map((a) => [a.id, a.name])),
+    [assets],
+  );
 
   if (loading) {
     return (
@@ -29,7 +32,11 @@ export default function DevicesScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.accent}
+          />
         }
         ListEmptyComponent={
           <EmptyState

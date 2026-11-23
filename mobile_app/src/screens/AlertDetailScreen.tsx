@@ -1,12 +1,16 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo, useState, type ReactElement } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTelemetry } from '../context/TelemetryContext';
 import { PrimaryButton, Screen, StatusChip } from '../components/ui';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { AlertStatus, RootStackParamList } from '../types/models';
 import { formatDateTime } from '../utils/format';
 import { severityTone } from '../utils/health';
 
-export default function AlertDetailScreen({ route, navigation }) {
+type Props = NativeStackScreenProps<RootStackParamList, 'AlertDetail'>;
+
+export default function AlertDetailScreen({ route, navigation }: Props): ReactElement {
   const { id } = route.params;
   const { assets, alerts, updateAlertStatus } = useTelemetry();
   const [notes, setNotes] = useState('');
@@ -17,7 +21,7 @@ export default function AlertDetailScreen({ route, navigation }) {
     [alerts, id],
   );
   const assetName = useMemo(
-    () => assets.find((a) => a.id === alert?.asset_id)?.name || alert?.asset_id,
+    () => assets.find((a) => a.id === alert?.asset_id)?.name || alert?.asset_id || '',
     [assets, alert],
   );
 
@@ -35,7 +39,7 @@ export default function AlertDetailScreen({ route, navigation }) {
   const resolved = ['resolved', 'false_positive'].includes(alert.status);
   const diag = alert.ai_diagnosis;
 
-  const setStatus = async (nextStatus) => {
+  const setStatus = async (nextStatus: AlertStatus) => {
     setBusy(true);
     await updateAlertStatus(alert.id, nextStatus, notes.trim() || undefined);
     setBusy(false);
@@ -72,7 +76,7 @@ export default function AlertDetailScreen({ route, navigation }) {
                 </>
               ) : null}
               <Text style={styles.subLabel}>Immediate Actions</Text>
-              {(diag.immediate_actions || []).map((step, i) => (
+              {(diag.immediate_actions ?? []).map((step, i) => (
                 <Text key={i} style={styles.step}>
                   • {step}
                 </Text>
@@ -101,7 +105,7 @@ export default function AlertDetailScreen({ route, navigation }) {
                 <PrimaryButton
                   label="Acknowledge"
                   variant="ghost"
-                  onPress={() => setStatus('acknowledged')}
+                  onPress={() => void setStatus('acknowledged')}
                   disabled={busy}
                 />
                 <View style={{ height: spacing.sm }} />
@@ -109,7 +113,7 @@ export default function AlertDetailScreen({ route, navigation }) {
             )}
             <PrimaryButton
               label={busy ? 'Saving…' : 'Mark Resolved'}
-              onPress={() => setStatus('resolved')}
+              onPress={() => void setStatus('resolved')}
               disabled={busy}
             />
           </>

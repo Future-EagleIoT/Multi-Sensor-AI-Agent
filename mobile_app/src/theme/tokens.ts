@@ -1,5 +1,5 @@
 /**
- * Industrial ops palette — cool slate + teal, not purple/cream AI defaults.
+ * Industrial ops palette — cool slate + teal.
  */
 export const colors = {
   ink: '#0B1C24',
@@ -20,7 +20,7 @@ export const colors = {
   ok: '#15803D',
   okSoft: '#DCFCE7',
   white: '#FFFFFF',
-};
+} as const;
 
 export const spacing = {
   xs: 4,
@@ -29,24 +29,10 @@ export const spacing = {
   lg: 16,
   xl: 24,
   xxl: 32,
-};
+} as const;
 
 export const radii = {
   sm: 8,
   md: 12,
   lg: 16,
-};
-
-export const thresholds = {
-  temperature: 37,
-  humidity: 80,
-  vibration_hz: 20,
-  power_w: 130,
-};
-
-export const baselines = {
-  temperature: 30,
-  humidity: 55,
-  vibration_hz: 12,
-  power_w: 85,
-};
+} as const;

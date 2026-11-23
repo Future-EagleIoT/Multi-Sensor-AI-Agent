@@ -1,24 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactElement } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../services/api';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { AuthStackParamList } from '../types/models';
 import { PrimaryButton, Screen } from '../components/ui';
 
-export default function LoginScreen({ navigation }) {
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+
+export default function LoginScreen({ navigation }: Props): ReactElement {
   const { signIn, authError, clearError } = useAuth();
   const [email, setEmail] = useState('admin@future-eagle.io');
   const [password, setPassword] = useState('DemoPassword123!');
   const [busy, setBusy] = useState(false);
-  const [localError, setLocalError] = useState(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     clearError();
@@ -54,7 +58,7 @@ export default function LoginScreen({ navigation }) {
             autoComplete="email"
             value={email}
             onChangeText={setEmail}
-            placeholder="manager@acme.local"
+            placeholder="manager@acme-plant.io"
             placeholderTextColor={colors.inkFaint}
           />
 
@@ -75,7 +79,7 @@ export default function LoginScreen({ navigation }) {
           <View style={{ height: spacing.md }} />
           <PrimaryButton
             label={busy ? 'Signing in…' : 'Sign in'}
-            onPress={onSubmit}
+            onPress={() => void onSubmit()}
             disabled={busy}
           />
 

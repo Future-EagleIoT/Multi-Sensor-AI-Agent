@@ -1,12 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { type ReactElement } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTelemetry } from '../context/TelemetryContext';
 import { PrimaryButton, Screen, StatusChip } from '../components/ui';
 import { API_URL } from '../services/api';
 import { colors, radii, spacing } from '../theme/tokens';
 
-export default function SettingsScreen() {
+export default function SettingsScreen(): ReactElement {
   const { user, signOut, switchOrg } = useAuth();
   const { live, openAlerts, readings, selectedAsset } = useTelemetry();
   const profile = selectedAsset?.profile;
@@ -28,22 +28,24 @@ export default function SettingsScreen() {
           />
         </View>
 
-        {user?.organizations?.length > 1 && (
+        {(user?.organizations?.length ?? 0) > 1 && (
           <>
             <Text style={styles.section}>Switch Factory Tenant</Text>
             <View style={styles.card}>
-              {user.organizations.map((org) => {
+              {user?.organizations.map((org) => {
                 const active = org.id === user.activeOrg?.id;
                 return (
                   <Pressable
                     key={org.id}
-                    onPress={() => !active && switchOrg(org.id)}
+                    onPress={() => {
+                      if (!active) void switchOrg(org.id);
+                    }}
                     style={[styles.orgRow, active && styles.orgRowActive]}
                   >
                     <Text style={[styles.orgName, active && { color: colors.accent }]}>
                       {org.name}
                     </Text>
-                    <Text style={styles.rowValue}>{active ? 'Active' : org.role}</Text>
+                    <Text style={styles.rowValue}>{active ? 'Active' : org.role || 'member'}</Text>
                   </Pressable>
                 );
               })}
@@ -59,19 +61,22 @@ export default function SettingsScreen() {
           <Row label="Open alerts" value={String(openAlerts.length)} />
         </View>
 
-        {profile && (
+        {profile && selectedAsset && (
           <>
             <Text style={styles.section}>Selected Asset Limits ({selectedAsset.name})</Text>
             <View style={styles.card}>
               <Row label="Temp (warn / crit)" value={`${profile.warn_temp} / ${profile.crit_temp} °C`} />
               <Row label="Humidity (warn / crit)" value={`${profile.warn_humidity} / ${profile.crit_humidity} %`} />
-              <Row label="Vibration (warn / crit)" value={`${profile.warn_vibration_hz} / ${profile.crit_vibration_hz} Hz`} />
+              <Row
+                label="Vibration (warn / crit)"
+                value={`${profile.warn_vibration_hz} / ${profile.crit_vibration_hz} Hz`}
+              />
               <Row label="Power (warn / crit)" value={`${profile.warn_power_w} / ${profile.crit_power_w} W`} />
             </View>
           </>
         )}
 
-        <PrimaryButton label="Sign out" variant="danger" onPress={signOut} />
+        <PrimaryButton label="Sign out" variant="danger" onPress={() => void signOut()} />
 
         <Text style={styles.footer}>
           Future Eagle IIoT SaaS · Multi-Tenant Field Ops Client
@@ -81,7 +86,7 @@ export default function SettingsScreen() {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value }: { label: string; value: string }): ReactElement {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>

@@ -1,33 +1,39 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Thermometer, Droplets, Activity, Zap } from 'lucide-react-native';
+import React, { type ReactElement } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { Activity, Droplets, Thermometer, Zap, type LucideIcon } from 'lucide-react-native';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { AssetProfile, LatestMetrics, MetricKey, TelemetryPoint } from '../types/models';
 import { fmtNum } from '../utils/format';
 import { metricStatus } from '../utils/health';
 
-const ICONS = {
+const ICONS: Record<MetricKey, LucideIcon> = {
   temperature: Thermometer,
   humidity: Droplets,
   vibration_hz: Activity,
   power_w: Zap,
 };
 
-const LABELS = {
+const LABELS: Record<MetricKey, string> = {
   temperature: 'Temperature',
   humidity: 'Humidity',
   vibration_hz: 'Vibration',
   power_w: 'Power',
 };
 
-const UNITS = {
+const UNITS: Record<MetricKey, string> = {
   temperature: '°C',
   humidity: '%',
   vibration_hz: 'Hz',
   power_w: 'W',
 };
 
-export function MetricGrid({ reading, profile }) {
-  const keys = ['temperature', 'humidity', 'vibration_hz', 'power_w'];
+export interface MetricGridProps {
+  reading: Partial<TelemetryPoint> | LatestMetrics | null | undefined;
+  profile?: AssetProfile | null;
+}
+
+export function MetricGrid({ reading, profile }: MetricGridProps): ReactElement {
+  const keys: MetricKey[] = ['temperature', 'humidity', 'vibration_hz', 'power_w'];
   return (
     <View style={styles.grid}>
       {keys.map((key) => (
@@ -42,7 +48,15 @@ export function MetricGrid({ reading, profile }) {
   );
 }
 
-function MetricCard({ metricKey, value, profile }) {
+function MetricCard({
+  metricKey,
+  value,
+  profile,
+}: {
+  metricKey: MetricKey;
+  value: number | null | undefined;
+  profile?: AssetProfile | null;
+}): ReactElement {
   const Icon = ICONS[metricKey];
   const status = metricStatus(metricKey, value, profile);
   const accent =

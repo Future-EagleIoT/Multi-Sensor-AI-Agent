@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import React, { type ReactElement } from 'react';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useTelemetry } from '../context/TelemetryContext';
 import { EmptyState, LoadingBlock, Screen } from '../components/ui';
 import { colors, radii, spacing } from '../theme/tokens';
-import { formatClock, fmtNum } from '../utils/format';
+import { fmtNum, formatClock } from '../utils/format';
 
-export default function HistoryScreen() {
+export default function HistoryScreen(): ReactElement {
   const { selectedAsset, readings, loading, refreshing, refresh } = useTelemetry();
 
   if (loading) {
@@ -29,7 +29,11 @@ export default function HistoryScreen() {
         keyExtractor={(item, idx) => `${item.timestamp || item.time}-${idx}`}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.accent}
+          />
         }
         ListEmptyComponent={
           <EmptyState

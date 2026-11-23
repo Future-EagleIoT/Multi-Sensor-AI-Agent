@@ -1,8 +1,3 @@
-mosquitto/config/certs
-mosquitto/config/log
-mosquitto/config/data
-mosquitto/config/config
-
 infra/certs/*
 !infra/certs/.gitkeep
 

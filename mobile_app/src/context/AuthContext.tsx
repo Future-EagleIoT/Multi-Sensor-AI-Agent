@@ -1,16 +1,56 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient, isApiConfigured } from '../services/api';
+import type { AuthUser, SessionData } from '../types/models';
 
 const SESSION_KEY = 'eagle_mobile_session_v2';
-const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
+export interface AuthResult<T> {
+  data?: T;
+  error?: Error;
+}
+
+export interface AuthContextValue {
+  session: SessionData | null;
+  token: string | null;
+  user: AuthUser | null;
+  loading: boolean;
+  authError: string | null;
+  isConfigured: boolean;
+  isGuest: boolean;
+  signIn: (email: string, password: string) => Promise<AuthResult<SessionData>>;
+  signUp: (
+    email: string,
+    fullName: string,
+    password: string,
+    orgName: string,
+  ) => Promise<AuthResult<SessionData>>;
+  switchOrg: (orgId: string) => Promise<AuthResult<SessionData>>;
+  signOut: () => Promise<{ error: null }>;
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+export function AuthProvider({ children }: { children: ReactNode }): ReactElement {
+  const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const persist = useCallback(async (next) => {
+  const persist = useCallback(async (next: SessionData | null) => {
     setSession(next);
     if (next) {
       await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(next));
@@ -23,13 +63,11 @@ export function AuthProvider({ children }) {
     let mounted = true;
     AsyncStorage.getItem(SESSION_KEY)
       .then((raw) => {
-        if (!mounted) return;
-        if (raw) {
-          try {
-            setSession(JSON.parse(raw));
-          } catch {
-            // ignore corrupted storage
-          }
+        if (!mounted || !raw) return;
+        try {
+          setSession(JSON.parse(raw) as SessionData);
+        } catch {
+          // ignore corrupted storage
         }
       })
       .finally(() => {
@@ -41,13 +79,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = useCallback(
-    async (email, password) => {
+    async (email: string, password: string): Promise<AuthResult<SessionData>> => {
       setAuthError(null);
       try {
         const data = await apiClient.login(email, password);
         await persist(data);
         return { data };
-      } catch (error) {
+      } catch (err: unknown) {
+        const error = toError(err);
         setAuthError(error.message);
         return { error };
       }
@@ -56,13 +95,19 @@ export function AuthProvider({ children }) {
   );
 
   const signUp = useCallback(
-    async (email, fullName, password, orgName) => {
+    async (
+      email: string,
+      fullName: string,
+      password: string,
+      orgName: string,
+    ): Promise<AuthResult<SessionData>> => {
       setAuthError(null);
       try {
         const data = await apiClient.register(email, fullName, password, orgName);
         await persist(data);
         return { data };
-      } catch (error) {
+      } catch (err: unknown) {
+        const error = toError(err);
         setAuthError(error.message);
         return { error };
       }
@@ -71,14 +116,17 @@ export function AuthProvider({ children }) {
   );
 
   const switchOrg = useCallback(
-    async (orgId) => {
-      if (!session?.access_token) return { error: new Error('Not signed in') };
+    async (orgId: string): Promise<AuthResult<SessionData>> => {
+      if (!session?.access_token) {
+        return { error: new Error('Not signed in') };
+      }
       setAuthError(null);
       try {
         const data = await apiClient.switchOrg(session.access_token, orgId);
         await persist(data);
         return { data };
-      } catch (error) {
+      } catch (err: unknown) {
+        const error = toError(err);
         setAuthError(error.message);
         return { error };
       }
@@ -86,13 +134,13 @@ export function AuthProvider({ children }) {
     [session, persist],
   );
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (): Promise<{ error: null }> => {
     setAuthError(null);
     await persist(null);
     return { error: null };
   }, [persist]);
 
-  const user = useMemo(
+  const user = useMemo<AuthUser | null>(
     () =>
       session
         ? {
@@ -100,13 +148,13 @@ export function AuthProvider({ children }) {
             email: session.email,
             fullName: session.full_name,
             activeOrg: session.active_org,
-            organizations: session.organizations || [],
+            organizations: session.organizations ?? [],
           }
         : null,
     [session],
   );
 
-  const value = useMemo(
+  const value = useMemo<AuthContextValue>(
     () => ({
       session,
       token: session?.access_token ?? null,
@@ -127,7 +175,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;

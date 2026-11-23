@@ -1,9 +1,26 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { type ReactElement, type ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { Tone } from '../types/models';
 
-export function Screen({ children, style, edges = ['top', 'left', 'right'] }) {
+export function Screen({
+  children,
+  style,
+  edges = ['top', 'left', 'right'],
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  edges?: Edge[];
+}): ReactElement {
   return (
     <SafeAreaView edges={edges} style={[styles.screen, style]}>
       {children}
@@ -11,7 +28,13 @@ export function Screen({ children, style, edges = ['top', 'left', 'right'] }) {
   );
 }
 
-export function SectionTitle({ children, right }) {
+export function SectionTitle({
+  children,
+  right,
+}: {
+  children: ReactNode;
+  right?: ReactNode;
+}): ReactElement {
   return (
     <View style={styles.sectionRow}>
       <Text style={styles.sectionTitle}>{children}</Text>
@@ -20,7 +43,13 @@ export function SectionTitle({ children, right }) {
   );
 }
 
-export function EmptyState({ title, body }) {
+export function EmptyState({
+  title,
+  body,
+}: {
+  title: string;
+  body?: string;
+}): ReactElement {
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyTitle}>{title}</Text>
@@ -29,7 +58,7 @@ export function EmptyState({ title, body }) {
   );
 }
 
-export function LoadingBlock({ label = 'Loading…' }) {
+export function LoadingBlock({ label = 'Loading…' }: { label?: string }): ReactElement {
   return (
     <View style={styles.loading}>
       <ActivityIndicator color={colors.accent} />
@@ -38,7 +67,17 @@ export function LoadingBlock({ label = 'Loading…' }) {
   );
 }
 
-export function PrimaryButton({ label, onPress, disabled, variant = 'primary' }) {
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+  variant = 'primary',
+}: {
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  variant?: 'primary' | 'ghost' | 'danger';
+}): ReactElement {
   const isGhost = variant === 'ghost';
   const isDanger = variant === 'danger';
   return (
@@ -65,15 +104,22 @@ export function PrimaryButton({ label, onPress, disabled, variant = 'primary' })
   );
 }
 
-export function StatusChip({ tone = 'ok', label }) {
-  const map = {
-    ok: { bg: colors.okSoft, fg: colors.ok },
-    warning: { bg: colors.warningSoft, fg: colors.warning },
-    critical: { bg: colors.criticalSoft, fg: colors.critical },
-    neutral: { bg: colors.surfaceAlt, fg: colors.inkMuted },
-    live: { bg: colors.accentSoft, fg: colors.accentInk },
-  };
-  const t = map[tone] || map.neutral;
+const TONE_MAP: Record<Tone, { bg: string; fg: string }> = {
+  ok: { bg: colors.okSoft, fg: colors.ok },
+  warning: { bg: colors.warningSoft, fg: colors.warning },
+  critical: { bg: colors.criticalSoft, fg: colors.critical },
+  neutral: { bg: colors.surfaceAlt, fg: colors.inkMuted },
+  live: { bg: colors.accentSoft, fg: colors.accentInk },
+};
+
+export function StatusChip({
+  tone = 'ok',
+  label,
+}: {
+  tone?: Tone;
+  label: string;
+}): ReactElement {
+  const t = TONE_MAP[tone] ?? TONE_MAP.neutral;
   return (
     <View style={[styles.chip, { backgroundColor: t.bg }]}>
       <Text style={[styles.chipText, { color: t.fg }]}>{label}</Text>

@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useMemo, type ReactElement } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
   Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
 } from 'react-native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Radio } from 'lucide-react-native';
 import { useTelemetry } from '../context/TelemetryContext';
 import { useAuth } from '../context/AuthContext';
@@ -20,9 +24,15 @@ import {
 } from '../components/ui';
 import { AlertCard } from '../components/AlertCard';
 import { colors, radii, spacing } from '../theme/tokens';
-import { formatRelative, formatClock } from '../utils/format';
+import type { MainTabParamList, RootStackParamList, Tone } from '../types/models';
+import { formatClock, formatRelative } from '../utils/format';
 
-export default function DashboardScreen({ navigation }) {
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Live'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+export default function DashboardScreen({ navigation }: Props): ReactElement {
   const { user } = useAuth();
   const {
     assets,
@@ -39,7 +49,18 @@ export default function DashboardScreen({ navigation }) {
     resolveAlert,
   } = useTelemetry();
 
-  const assetNames = Object.fromEntries(assets.map((a) => [a.id, a.name]));
+  const assetNames = useMemo(
+    () => Object.fromEntries(assets.map((a) => [a.id, a.name])),
+    [assets],
+  );
+
+  const bannerToneStyle: Record<Tone, ViewStyle> = {
+    ok: styles.tone_ok,
+    warning: styles.tone_warning,
+    critical: styles.tone_critical,
+    neutral: styles.tone_neutral,
+    live: styles.tone_ok,
+  };
 
   if (loading) {
     return (
@@ -54,7 +75,11 @@ export default function DashboardScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.accent}
+          />
         }
       >
         <View style={styles.hero}>
@@ -68,7 +93,6 @@ export default function DashboardScreen({ navigation }) {
           />
         </View>
 
-        {/* Multi-asset picker (fixes single-device assumption) */}
         {assets.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
             {assets.map((asset) => {
@@ -88,7 +112,7 @@ export default function DashboardScreen({ navigation }) {
           </ScrollView>
         )}
 
-        <View style={[styles.healthBanner, styles[`tone_${health.tone}`] || styles.tone_neutral]}>
+        <View style={[styles.healthBanner, bannerToneStyle[health.tone]]}>
           <Radio size={18} color={colors.ink} />
           <View style={{ flex: 1 }}>
             <Text style={styles.healthStatus}>
@@ -97,7 +121,7 @@ export default function DashboardScreen({ navigation }) {
             </Text>
             <Text style={styles.healthLabel}>{health.label}</Text>
           </View>
-          <Text style={styles.clock}>{formatClock(latest?.timestamp)}</Text>
+          <Text style={styles.clock}>{formatClock(latest?.timestamp ?? latest?.time)}</Text>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -133,13 +157,13 @@ export default function DashboardScreen({ navigation }) {
               alert={alert}
               assetName={assetNames[alert.asset_id]}
               onPress={() => navigation.navigate('AlertDetail', { id: alert.id })}
-              onResolve={resolveAlert}
+              onResolve={(alertId) => void resolveAlert(alertId)}
             />
           ))
         )}
 
         <Text style={styles.footerMeta}>
-          Updated {formatRelative(latest?.timestamp)}
+          Updated {formatRelative(latest?.timestamp ?? latest?.time)}
         </Text>
       </ScrollView>
     </Screen>

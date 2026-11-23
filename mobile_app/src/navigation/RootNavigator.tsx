@@ -1,15 +1,9 @@
-import React from 'react';
+import React, { type ReactElement } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {
-  Activity,
-  AlertTriangle,
-  Cpu,
-  Gauge,
-  Settings,
-} from 'lucide-react-native';
+import { Activity, AlertTriangle, Cpu, Gauge, Settings } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
@@ -20,12 +14,17 @@ import HistoryScreen from '../screens/HistoryScreen';
 import DevicesScreen from '../screens/DevicesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { colors } from '../theme/tokens';
+import type {
+  AuthStackParamList,
+  MainTabParamList,
+  RootStackParamList,
+} from '../types/models';
 
-const AuthStack = createNativeStackNavigator();
-const RootStack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
-function MainTabs() {
+function MainTabs(): ReactElement {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -39,7 +38,7 @@ function MainTabs() {
           paddingBottom: 8,
           paddingTop: 6,
         },
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color, size }: { color: string; size: number }) => {
           const props = { color, size: size ?? 22 };
           switch (route.name) {
             case 'Live':
@@ -52,8 +51,6 @@ function MainTabs() {
               return <Cpu {...props} />;
             case 'Settings':
               return <Settings {...props} />;
-            default:
-              return null;
           }
         },
       })}
@@ -67,7 +64,7 @@ function MainTabs() {
   );
 }
 
-function AuthNavigator() {
+function AuthNavigator(): ReactElement {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -76,7 +73,7 @@ function AuthNavigator() {
   );
 }
 
-function AppNavigator() {
+function AppNavigator(): ReactElement {
   return (
     <RootStack.Navigator>
       <RootStack.Screen
@@ -98,7 +95,7 @@ function AppNavigator() {
   );
 }
 
-export default function RootNavigator() {
+export default function RootNavigator(): ReactElement {
   const { session, loading } = useAuth();
 
   if (loading) {

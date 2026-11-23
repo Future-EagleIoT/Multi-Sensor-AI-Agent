@@ -1,12 +1,27 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { type ReactElement } from 'react';
+import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react-native';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { AlertItem } from '../types/models';
 import { formatDateTime } from '../utils/format';
 import { severityTone } from '../utils/health';
 import { StatusChip } from './ui';
 
-export function AlertCard({ alert, assetName, onPress, onResolve, resolving }) {
+export interface AlertCardProps {
+  alert: AlertItem;
+  assetName?: string;
+  onPress?: () => void;
+  onResolve?: (id: string) => void;
+  resolving?: boolean;
+}
+
+export function AlertCard({
+  alert,
+  assetName,
+  onPress,
+  onResolve,
+  resolving,
+}: AlertCardProps): ReactElement {
   const tone = severityTone(alert.severity);
   const resolved = ['resolved', 'false_positive'].includes(alert.status);
   const summary = alert.ai_diagnosis?.summary || alert.trigger_reason || 'Alert triggered';
@@ -42,7 +57,7 @@ export function AlertCard({ alert, assetName, onPress, onResolve, resolving }) {
         <Text style={styles.time}>{formatDateTime(alert.created_at)}</Text>
         {!resolved && onResolve ? (
           <Pressable
-            onPress={(e) => {
+            onPress={(e: GestureResponderEvent) => {
               e?.stopPropagation?.();
               onResolve(alert.id);
             }}

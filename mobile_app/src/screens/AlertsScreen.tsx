@@ -1,21 +1,32 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Pressable } from 'react-native';
+import React, { useMemo, useState, type ReactElement } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTelemetry } from '../context/TelemetryContext';
 import { AlertCard } from '../components/AlertCard';
 import { EmptyState, LoadingBlock, Screen, StatusChip } from '../components/ui';
 import { colors, spacing } from '../theme/tokens';
+import type { MainTabParamList, RootStackParamList } from '../types/models';
 
-const FILTERS = [
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Alerts'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+type FilterKey = 'open' | 'all' | 'CRITICAL' | 'WARNING';
+
+const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'open', label: 'Active' },
   { key: 'all', label: 'All' },
   { key: 'CRITICAL', label: 'Critical' },
   { key: 'WARNING', label: 'Warning' },
 ];
 
-export default function AlertsScreen({ navigation }) {
+export default function AlertsScreen({ navigation }: Props): ReactElement {
   const { assets, alerts, loading, refreshing, refresh, resolveAlert } = useTelemetry();
-  const [filter, setFilter] = useState('open');
-  const [resolvingId, setResolvingId] = useState(null);
+  const [filter, setFilter] = useState<FilterKey>('open');
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const assetNames = useMemo(
     () => Object.fromEntries(assets.map((a) => [a.id, a.name])),
@@ -30,7 +41,7 @@ export default function AlertsScreen({ navigation }) {
     });
   }, [alerts, filter]);
 
-  const onResolve = async (id) => {
+  const onResolve = async (id: string) => {
     setResolvingId(id);
     await resolveAlert(id);
     setResolvingId(null);
@@ -73,7 +84,11 @@ export default function AlertsScreen({ navigation }) {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.accent}
+          />
         }
         ListEmptyComponent={
           <EmptyState
@@ -86,7 +101,7 @@ export default function AlertsScreen({ navigation }) {
             alert={item}
             assetName={assetNames[item.asset_id]}
             resolving={resolvingId === item.id}
-            onResolve={onResolve}
+            onResolve={(id) => void onResolve(id)}
             onPress={() => navigation.navigate('AlertDetail', { id: item.id })}
           />
         )}
