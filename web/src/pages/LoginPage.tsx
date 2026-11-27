@@ -43,8 +43,15 @@ export const LoginPage: React.FC<Props> = ({ onLogin }) => {
       <div className="w-full max-w-4xl grid md:grid-cols-2 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
         <div className="bg-gradient-to-br from-[#0B1C24] via-[#11313D] to-[#0F766E] text-white p-8 flex flex-col justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 text-teal-300 text-xs font-bold uppercase tracking-widest mb-4">
-              <Factory className="w-4 h-4" /> Future Eagle IIoT SaaS
+            <div className="flex items-center gap-3 mb-5">
+              <img
+                src="/logo.png"
+                alt="Future Eagle IIoT"
+                className="w-11 h-11 rounded-xl border border-white/15 shadow-sm object-cover"
+              />
+              <div className="inline-flex items-center gap-2 text-teal-300 text-xs font-bold uppercase tracking-widest">
+                <Factory className="w-4 h-4" /> Future Eagle IIoT SaaS
+              </div>
             </div>
             <h1 className="text-3xl font-extrabold leading-tight">
               Industrial Predictive Maintenance Control Room

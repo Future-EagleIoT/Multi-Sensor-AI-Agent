@@ -1,5 +1,6 @@
 import React, { useState, type ReactElement } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -44,7 +45,14 @@ export default function LoginScreen({ navigation }: Props): ReactElement {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-          <Text style={styles.brand}>Future Eagle IIoT SaaS</Text>
+          <View style={styles.brandRow}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              accessibilityLabel="Future Eagle IIoT logo"
+            />
+            <Text style={styles.brand}>Future Eagle IIoT SaaS</Text>
+          </View>
           <Text style={styles.title}>Field Ops Console</Text>
           <Text style={styles.sub}>
             Multi-tenant industrial monitoring connected to {API_URL}.
@@ -100,13 +108,23 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingTop: spacing.xxl,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  logo: {
+    width: 52,
+    height: 52,
+    borderRadius: radii.md,
+  },
   brand: {
     color: colors.accent,
     fontWeight: '700',
     fontSize: 13,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: spacing.sm,
   },
   title: {
     fontSize: 30,

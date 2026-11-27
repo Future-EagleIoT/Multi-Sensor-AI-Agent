@@ -366,8 +366,13 @@ export default function App() {
       {/* Sidebar */}
       <aside className="w-64 bg-[#0B1C24] text-white flex flex-col shrink-0">
         <div className="p-5 border-b border-white/10">
-          <div className="flex items-center gap-2 text-teal-400 font-bold text-xs uppercase tracking-widest">
-            <Factory className="w-4 h-4" /> Future Eagle IIoT
+          <div className="flex items-center gap-2.5 text-teal-400 font-bold text-xs uppercase tracking-widest">
+            <img
+              src="/logo.png"
+              alt="Future Eagle IIoT"
+              className="w-8 h-8 rounded-lg border border-white/15 object-cover shrink-0"
+            />
+            <span>Future Eagle IIoT</span>
           </div>
           <div className="mt-3">
             <label className="text-[11px] uppercase tracking-wider text-slate-400">Active Factory Tenant</label>

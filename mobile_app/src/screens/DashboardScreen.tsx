@@ -1,5 +1,6 @@
 import React, { useMemo, type ReactElement } from 'react';
 import {
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -83,9 +84,16 @@ export default function DashboardScreen({ navigation }: Props): ReactElement {
         }
       >
         <View style={styles.hero}>
-          <View style={{ flex: 1, paddingRight: spacing.sm }}>
-            <Text style={styles.kicker}>{user?.activeOrg?.name || 'Factory'}</Text>
-            <Text style={styles.device}>{selectedAsset?.name || 'No assets yet'}</Text>
+          <View style={styles.heroLeft}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.heroLogo}
+              accessibilityLabel="Future Eagle IIoT logo"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.kicker}>{user?.activeOrg?.name || 'Factory'}</Text>
+              <Text style={styles.device}>{selectedAsset?.name || 'No assets yet'}</Text>
+            </View>
           </View>
           <StatusChip
             tone={live ? 'live' : 'neutral'}
@@ -180,6 +188,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: spacing.md,
+  },
+  heroLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingRight: spacing.sm,
+  },
+  heroLogo: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.sm,
   },
   kicker: {
     color: colors.inkFaint,

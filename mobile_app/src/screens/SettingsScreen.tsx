@@ -1,5 +1,5 @@
 import React, { type ReactElement } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTelemetry } from '../context/TelemetryContext';
 import { PrimaryButton, Screen, StatusChip } from '../components/ui';
@@ -18,9 +18,18 @@ export default function SettingsScreen(): ReactElement {
 
         <Text style={styles.section}>Account & Active Tenant</Text>
         <View style={styles.card}>
-          <Text style={styles.label}>Signed in as</Text>
-          <Text style={styles.value}>{user?.fullName || user?.email || '—'}</Text>
-          <Text style={styles.sub}>{user?.email}</Text>
+          <View style={styles.brandHeader}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.brandLogo}
+              accessibilityLabel="Future Eagle IIoT logo"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Signed in as</Text>
+              <Text style={styles.value}>{user?.fullName || user?.email || '—'}</Text>
+              <Text style={styles.sub}>{user?.email}</Text>
+            </View>
+          </View>
           <View style={{ height: spacing.sm }} />
           <StatusChip
             tone="ok"
@@ -124,6 +133,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
+  },
+  brandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  brandLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: radii.sm,
   },
   label: {
     color: colors.inkFaint,
